@@ -62,6 +62,25 @@ Suggested preamble for the reading-list file itself:
 ,* Books
 #+end_example
 
+** Link abbreviations
+
+Two Org [[https://orgmode.org/manual/Link-Abbreviations.html][link abbreviations]] turn an identifier already in an entry
+into a one-click lookup. Add them to the preamble of your
+reading-list file:
+
+#+begin_example
+,#+LINK: ia https://archive.org/details/%s
+,#+LINK: sfpl-isbn https://sfpl.bibliocommons.com/v2/search?searchType=isbn&query=%s
+#+end_example
+
+- =ia= — opens an Internet Archive item in the online reader, e.g.
+  =[[ia:mountainsandmol00marrgoog]]= using the identifier captured in
+  =:IA:=.
+- =sfpl-isbn= — runs an ISBN search against the San Francisco Public
+  Library catalog, e.g. =[[sfpl-isbn:9780252066313]]=, putting an
+  availability check one click from any entry. Point it at whatever
+  catalog you use.
+
 * Usage
 
 - =M-x org-reading-list-insert= (or the capture template): prompts for
