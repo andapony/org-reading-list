@@ -53,6 +53,31 @@ recent Org.
                "%(org-reading-list-capture)" :empty-lines 1))
 #+end_src
 
+Or fold installation, customization, and the capture template into a
+single =use-package= declaration:
+
+#+begin_src emacs-lisp
+(use-package org-reading-list
+  :vc (:url "https://github.com/andapony/org-reading-list")
+  :custom
+  (org-reading-list-file "~/org/reading-list.org")
+  ;; Holdings codes for :HOLDINGS:/:CALLNO: completion. OWN and IA are
+  ;; built in; add short, uppercase, stable codes for your libraries.
+  (org-reading-list-holdings-codes '("OWN" "IA" "MILIB" "SFPL"))
+  ;; Where org-reading-list-download-pdf stores Internet Archive scans.
+  (org-reading-list-pdf-directory "~/books/pdfs/")
+  ;; Cap on subject tags harvested from captured or fetched records.
+  (org-reading-list-max-tags 6)
+  :config
+  (add-to-list 'org-capture-templates
+               '("r" "Book for the reading list" entry
+                 (file+headline org-reading-list-file "Books")
+                 "%(org-reading-list-capture)" :empty-lines 1)))
+#+end_src
+
+If the Library of Congress SRU index stops matching, override
+=org-reading-list-loc-sru-url= here too — see its docstring.
+
 Suggested preamble for the reading-list file itself:
 
 #+begin_example
