@@ -1,0 +1,107 @@
+#+TITLE: org-reading-list
+
+Maintain a bibliographic reading list in Org mode — one heading per
+book, full bibliographic data in property drawers, subjects as tags,
+reading status as TODO keywords.
+
+The property schema follows BibTeX field names wherever an equivalent
+exists, so the list exports to a =.bib= (ol-bibtex, citar, ebib) with
+little translation, while library-world identifiers — LCCN, OCLC, LC
+and Dewey classification, local call numbers, holdings — ride along in
+their own properties. The full schema, with format conventions and
+crosswalks to MARC 21, BibTeX/biblatex, and the Open Library API, is
+documented in [[file:doc/reading-list-schema.org][doc/reading-list-schema.org]].
+
+* Features
+
+- Capture an entry from [[https://openlibrary.org][Open Library]] by ISBN, by Open Library
+  edition id, or by pasting an openlibrary.org URL — pre-ISBN books
+  work via their edition id.
+- Enrich entries from the Library of Congress catalog (SRU/MARCXML):
+  backfill LCCN, OCLC number, LC and Dewey classification, and harvest
+  650/651 subject headings as Org tags.
+- Track where each book can be obtained (=:HOLDINGS:= — own
+  collection, specific libraries) separately from shelf numbers
+  (=:CALLNO:=).
+- Download a book's Internet Archive scan as a local PDF, linked from
+  the entry.
+- Stable cite keys (=:CUSTOM_ID:=) generated per entry, collision-safe.
+
+* Installation
+
+Not yet on MELPA. With Emacs 29+:
+
+#+begin_src emacs-lisp
+(use-package org-reading-list
+  :vc (:url "https://github.com/andapony/org-reading-list"))
+#+end_src
+
+or clone and add to =load-path= manually. Requires Emacs 27.1+ and a
+recent Org.
+
+* Configuration
+
+#+begin_src emacs-lisp
+(setq org-reading-list-file "~/org/reading-list.org"
+      ;; Your libraries; OWN and IA are built in.
+      org-reading-list-holdings-codes '("OWN" "IA" "MILIB" "SFPL")
+      org-reading-list-pdf-directory "~/books/pdfs/")
+
+(add-to-list 'org-capture-templates
+             '("r" "Book for the reading list" entry
+               (file+headline org-reading-list-file "Books")
+               "%(org-reading-list-capture)" :empty-lines 1))
+#+end_src
+
+Suggested preamble for the reading-list file itself:
+
+#+begin_example
+,#+TITLE: Reading List
+,#+TODO: TOREAD(t) READING(r) | READ(d) ABANDONED(x)
+,#+COLUMNS: %TODO %DATE(Year) %AUTHOR(Author) %ITEM(Title) %HOLDINGS %CALLNO %ADDED
+,* Books
+#+end_example
+
+* Usage
+
+- =M-x org-reading-list-insert= (or the capture template): prompts for
+  an ISBN, OL edition id, or OL URL, plus an optional "found via"
+  source, and inserts a fully populated entry.
+- =M-x org-reading-list-loc-enrich= on an entry: fills missing
+  LCCN/OCLC/LCC/DDC from the Library of Congress record (queried by
+  ISBN, or LCCN for pre-ISBN books). =C-u= overwrites existing values
+  — useful for refreshing entries captured from pre-publication CIP
+  records once LoC completes them.
+- =M-x org-reading-list-loc-tags=: adds the LoC subject headings as
+  normalized tags (=C-u= replaces instead of merging). Prune to your
+  own tag vocabulary afterward.
+- =M-x org-reading-list-set-holdings=: records availability with
+  completion over your holdings codes.
+- =M-x org-reading-list-download-pdf=: for entries with an =:IA:=
+  identifier, downloads the Internet Archive PDF into
+  =org-reading-list-pdf-directory=, links it from =:FILE:=, and adds
+  =OWN (pdf)= to =:HOLDINGS:=.
+
+* Etiquette and caveats
+
+- The Library of Congress asks automated clients of lx2.loc.gov to
+  stay under ~10 requests/minute. The commands here make one request
+  per invocation; throttle any batch use yourself.
+- Open Library author names arrive in direct order and are inverted
+  heuristically; check compound surnames.
+- LoC's post-FOLIO SRU index support is in flux; if =bath.isbn= stops
+  matching, see =org-reading-list-loc-sru-url=.
+
+* Development
+
+=make= runs byte-compilation (warnings as errors), checkdoc, and the
+ERT suite. Tests are offline — pure functions only.
+
+=make package-lint= runs [[https://github.com/purcell/package-lint][package-lint]] for MELPA-readiness checks. It is
+kept out of the default =make= target because it installs package-lint
+from MELPA on first run (and so needs network); subsequent runs are
+offline.
+
+* License
+
+GPL-3.0-or-later.

@@ -1,0 +1,357 @@
+#+TITLE: Reading List Schema (v2)
+#+AUTHOR: Rob Duncan
+#+OPTIONS: toc:2
+
+* Overview
+
+One Org heading per book; bibliographic data in a property drawer;
+subjects as Org tags; reading status as a TODO keyword; free-form notes
+in the entry body. Design goals, in priority order:
+
+1. *Queryable in Org* — column view, =org-ql=, sparse trees, agenda
+   tag/property matches all work without preprocessing.
+2. *Cheap export to BibTeX/biblatex* — property names follow BibTeX
+   field names wherever a BibTeX equivalent exists, so =M-x org-bibtex=
+   (ol-bibtex) or a citar/ebib workflow needs little or no translation.
+3. *Lossless enough from MARC* — every field routinely harvested from a
+   MARC 21 record (Mechanics' Institute Encore exports, LoC Z39.50) has
+   a defined home.
+4. *Provenance* — every entry records when it was added and where the
+   book was encountered.
+
+The v1 schema (used in =sf-history-reading-list.org=) differs in a few
+property names and conventions; see [[*Migration from the v1 schema][Migration]] at the end.
+
+* File preamble
+
+#+begin_example
+,#+TITLE: Reading List
+,#+TODO: TOREAD(t) READING(r) | READ(d) ABANDONED(x)
+,#+COLUMNS: %TODO %DATE(Year) %AUTHOR(Author) %ITEM(Title) %HOLDINGS %CALLNO %ADDED
+,* Books
+#+end_example
+
+- Status lives in the TODO keyword, not a property or tag. =C-c C-t=
+  cycles it; agenda views like =org-todo-list= then work for free.
+- =C-c C-x C-c= on the =Books= heading gives the spreadsheet view.
+- New entries are prepended under =Books= (newest first by =:ADDED:=);
+  re-sort on demand with =C-c ^= on the parent heading (by property).
+
+* Entry anatomy
+
+#+begin_example
+,** TOREAD San Francisco, 1846-1856: From Hamlet to City  :sf_history:gold_rush:urbanization:
+:PROPERTIES:
+:CUSTOM_ID: lotchin1997
+:BTYPE:     book
+:AUTHOR:    Lotchin, Roger W.
+:TITLE:     San Francisco, 1846-1856: From Hamlet to City
+:ADDRESS:   Urbana
+:PUBLISHER: University of Illinois Press
+:DATE:      1997
+:EDITION:   Illini Books ed.
+:PAGES:     406
+:ISBN:      9780252066313
+:LCCN:      96049122
+:OCLC:      35896678
+:LCC:       F869.S357 L67 1997
+:DDC:       979.4/61
+:HOLDINGS:  MILIB; SFPL
+:CALLNO:    MILIB 979.461 L88
+:ADDED:     [2026-06-10 Wed]
+:FOUND:     https://example.com/some-article-on-instant-cities
+:END:
+Why it's on the list, what to follow up on, cross-references…
+#+end_example
+
+(Values above are illustrative — verify against a real record before
+treating them as the book's actual identifiers.)
+
+* Property reference
+
+| Property   | Req | Format                                   | Example                          |
+|------------+-----+------------------------------------------+----------------------------------|
+| CUSTOM_ID  | yes | surname slug + year, ASCII lowercase     | =lotchin1997=, =lotchin1997a=    |
+| BTYPE      | yes | BibTeX entry type, normally =book=       | =book=                           |
+| AUTHOR     | yes | inverted, =" and "=-joined (BibTeX)      | =Lotchin, Roger W. and Issel, William= |
+| EDITOR     | no  | same format as AUTHOR                    | =Senkewicz, Robert M.=           |
+| TITLE      | yes | Title: Subtitle (sentence punctuation stripped) | =Imperial San Francisco: Urban Power, Earthly Ruin= |
+| ADDRESS    | no  | place of publication (first if several)  | =Berkeley=                       |
+| PUBLISHER  | no  | publisher name, articles intact          | =University of California Press= |
+| DATE       | yes | =YYYY= or =YYYY-MM= (ISO/EDTF subset)    | =1997=                           |
+| ORIGDATE   | no  | year of first publication, for reprints/facsimiles | =1855=                 |
+| EDITION    | no  | edition statement as printed             | =2nd ed., rev.=                  |
+| SERIES     | no  | series title (+ number)                  | =Western Urban History Series ; 2= |
+| PAGES      | no  | total pages, plain number preferred      | =406= (or MARC collation =xx, 406 p.=) |
+| ISBN       | no  | ISBN-13 preferred; extras comma-separated, first canonical | =9780252066313= |
+| LCCN       | no  | LoC control number, as printed           | =96049122=                       |
+| OCLC       | no  | OCLC number, =(OCoLC)= prefix stripped   | =35896678=                       |
+| OLID       | no  | Open Library edition id (the pre-ISBN handle) | =OL5851208M=               |
+| IA         | no  | Internet Archive item identifier         | =mountainsandmol00marrgoog=      |
+| LCC        | no  | LC classification/call number            | =F869.S357 L67 1997=             |
+| DDC        | no  | Dewey classification (keep prime marks)  | =979.4/61=                       |
+| HOLDINGS   | no  | =";"=-separated codes, optional parenthetical note | =OWN (hardcover); SFPL; MILIB= |
+| CALLNO     | no  | local shelf number(s): =CODE number=, =";"=-separated | =MILIB 979.461 L88; SFPL 979.461 L88= |
+| FILE       | no  | Org file link to a local copy (PDF etc.) | =[[file:~/org/reading-list-pdfs/marryat1962.pdf]]= |
+| ADDED      | yes | inactive Org timestamp                   | =[2026-06-10 Wed]=               |
+| FOUND      | no  | URL, Org link, or free text provenance   | =https://…= or =rec. from C. Karr= |
+| URL        | no  | canonical link for the work itself       | publisher or Open Library page   |
+| COVERS     | no  | period the book treats (v1 legacy)       | =1849-1856=                      |
+
+Notes on the subtle ones:
+
+- *CUSTOM_ID* — doubles as the BibTeX cite key on export and as an
+  internal link anchor (=[[#lotchin1997]]= works anywhere in Org).
+  Collisions get a letter suffix: =smith2020=, =smith2020a=, … Never
+  change a key once notes elsewhere link to it.
+- *AUTHOR/EDITOR* — BibTeX name grammar: =Last, First and Last, First=;
+  generational suffixes as =Last, Jr., First=. MARC 100/700 fields are
+  already inverted — copy them, dropping the =$d= birth/death dates and
+  trailing punctuation. Corporate authors (MARC 110) go in literal
+  braces on export; store them verbatim, e.g. =Mechanics' Institute=.
+- *LCC vs DDC vs CALLNO* — LCC and DDC are properties of the *work*
+  (what LoC assigned); CALLNO is a property of a *copy* (where a
+  particular library shelved it). The Mechanics' Institute uses Dewey
+  with Cutter numbers, so its CALLNO often resembles but does not equal
+  the DDC.
+- *DATE vs ORIGDATE* — for reprints and facsimiles, DATE is the
+  edition in hand (it's what cite keys, call numbers, and catalog
+  lookups match); ORIGDATE is the year of first publication. Marryat's
+  /Mountains and Molehills/ in the 1962 Lippincott printing: =:DATE:
+  1962=, =:ORIGDATE: 1855=. The generated cite key uses DATE
+  (=marryat1962=); rename it to taste — uniqueness and stability are
+  the only rules.
+- *HOLDINGS vs CALLNO* — HOLDINGS answers "where can I get this book"
+  and is the authoritative, complete list: every code listed, including
+  =OWN= for the personal collection, whether or not a shelf number is
+  known. CALLNO supplements it with the shelf number once looked up.
+  A library with a CALLNO entry is repeated in HOLDINGS — redundancy is
+  deliberate, so a single property match (e.g. =HOLDINGS={MILIB}= in an
+  agenda search, or =C-c / p= sparse trees) finds everything.
+- *COVERS* — retained from v1 for the SF history collection (period
+  treated vs. publication date, for dual-axis sorting). Optional and
+  has no BibTeX/MARC equivalent.
+
+* Tags (subjects) and status
+
+Subjects map to Org tags on the headline:
+
+- Normalize: downcase; runs of non-alphanumerics → =_=; trim leading
+  and trailing underscores. =San Francisco (Calif.) -- History= →
+  =san_francisco_calif_history= or, better, split MARC subdivisions
+  (=$x $y $z=, shown as =--=) into separate tags: =san_francisco=
+  + =history=.
+- Prefer a small controlled vocabulary over verbatim LCSH: collapse
+  variants to the tags you actually search by (=sf_history=,
+  =gold_rush=, =labor=, =urbanism=, =waterfront=, …). Capture tools may
+  emit raw normalized headings; prune to your vocabulary when filing.
+- Cap at ~6 tags per entry; more hurts the headline and adds nothing.
+- Status is *never* a tag — it's the TODO keyword (=TOREAD= /
+  =READING= / =READ= / =ABANDONED=).
+
+* Crosswalk: schema ↔ BibTeX ↔ MARC 21 ↔ Open Library
+
+Open Library paths refer to the books API with =jscmd=data=
+(=https://openlibrary.org/api/books?bibkeys=ISBN:…&format=json&jscmd=data=).
+
+| Property  | BibTeX / biblatex      | MARC 21                       | Open Library (jscmd=data)              |
+|-----------+------------------------+-------------------------------+-----------------------------------------|
+| CUSTOM_ID | cite key               | — (generated)                 | — (generated)                           |
+| BTYPE     | entry type             | Leader/06-07 ≈ =am= for books | — (assume =book=)                       |
+| AUTHOR    | =author=               | 100 =$a= (+ 700 =$a= added)   | =authors[].name= (direct order — invert!) |
+| EDITOR    | =editor=               | 700 =$a= with =$e= editor     | — (rarely distinguished)                |
+| TITLE     | =title=                | 245 =$a $b= (join with ": ")  | =title= + =subtitle=                    |
+| ADDRESS   | =address= / =location= | 264/260 =$a=                  | =publish_places[0].name=                |
+| PUBLISHER | =publisher=            | 264/260 =$b=                  | =publishers[0].name=                    |
+| DATE      | =year= / =date=        | 264/260 =$c= (also 008/07-10) | =publish_date= (free text — extract)    |
+| ORIGDATE  | =origdate= (biblatex)  | 534/500 reprint notes         | — (see the original edition's record)   |
+| EDITION   | =edition=              | 250 =$a=                      | — (edition-specific records vary)       |
+| SERIES    | =series=               | 490 =$a= (830 for traced form)| — (sometimes in =publishers=… verify)   |
+| PAGES     | =pagetotal= (biblatex) | 300 =$a=                      | =number_of_pages=                       |
+| ISBN      | =isbn=                 | 020 =$a=                      | =identifiers.isbn_13[]= / =isbn_10[]=   |
+| LCCN      | — (non-standard)       | 010 =$a=                      | =identifiers.lccn[0]=                   |
+| OCLC      | — (non-standard)       | 035 =$a= (strip =(OCoLC)=)    | =identifiers.oclc[0]=                   |
+| OLID      | — (non-standard)       | —                             | =identifiers.openlibrary[0]=            |
+| IA        | — (non-standard)       | 856 =$u= (archive.org links)  | =ebooks[0].preview_url= (extract id)    |
+| LCC       | — (non-standard)       | 050 =$a $b=                   | =classifications.lc_classifications[0]= |
+| DDC       | — (non-standard)       | 082 =$a=                      | =classifications.dewey_decimal_class[0]= |
+| CALLNO    | — (non-standard)       | 090/099 or holdings display   | — (local; look up per library)          |
+| FILE      | =file= (biblatex/JabRef) | —                           | — (local; see download command)         |
+| HOLDINGS  | — (non-standard)       | — (local availability data)   | — (look up per library catalog)         |
+| tags      | =keywords=             | 650/651 =$a $x $y $z=         | =subjects[].name=                       |
+| URL       | =url=                  | 856 =$u=                      | =url= (the OL page itself)              |
+
+* Translation notes
+
+** Reading MARC records by hand
+
+- *Strip ISBD punctuation*: trailing =/=, =:=, =;=, =.= at subfield
+  boundaries are display conventions, not data. =245 $a Imperial San
+  Francisco : $b urban power, earthly ruin / $c Gray Brechin.= →
+  =TITLE: Imperial San Francisco: Urban Power, Earthly Ruin=.
+- *245 second indicator* gives nonfiling characters: =245 14 $a The
+  great earthquake…= means skip 4 chars ("The ") when sorting. Keep the
+  article in TITLE; Org sorting rarely cares, BibTeX handles it.
+- *264 vs 260*: newer RDA records use 264 (second indicator 1 =
+  publication); pre-RDA records use 260. Same subfield meanings.
+- *Date noise in $c*: =c1997= (copyright), =[1997]= (inferred),
+  =1997, c1996= — record the publication year, here =1997=. The fixed
+  field 008 positions 07-10 hold a clean machine year if in doubt.
+- *100 $d* holds author life dates (=1934-2018=) — drop them.
+- *650 subdivisions*: =$a San Francisco (Calif.) $x Commerce $y 19th
+  century= displays with =--= separators; split into separate tags or
+  keep the =$a= heading only.
+- *Local call numbers*: 090/099 in some exports; in Encore the shelf
+  number is usually in the holdings display rather than the
+  bibliographic record. Prefix with the library code (see below).
+
+** Open Library quirks
+
+- *Names arrive in direct order* ("Roger W. Lotchin"). The capture code
+  inverts heuristically (last token = surname; recognizes Jr./Sr./II…),
+  which fails on compound and particled surnames ("Vaughan Williams",
+  "de la Torre", "Van der Berg") — eyeball every AUTHOR it writes.
+- *Coverage is uneven*: LCCN/OCLC/LCC/DDC are present for most trade
+  books, absent for many small-press and older titles. Missing
+  properties are simply omitted; backfill from MARC when you have it.
+- *publish_date* is free text ("September 2004", "1997?"). The capture
+  code extracts the first 4-digit year; refine by hand if needed.
+- *ISBN-13 preferred*: the code records =isbn_13[0]= when available
+  even if you searched by an ISBN-10.
+- *Pre-ISBN books capture by OLID*: the capture prompt accepts an
+  Open Library edition id (=OL5851208M=) or any openlibrary.org URL
+  containing one, in place of an ISBN. Data is *per edition* — a work
+  page (=OL…W=) lists many editions with different publishers, dates,
+  and call numbers, so open the edition you actually mean before
+  copying the URL. Editions imported from LoC MARC (check the "Source
+  records" section of the page) usually carry full LCCN/OCLC/LCC/DDC
+  even for 19th-century books. When an entry has no ISBN, the capture
+  code records :OLID: and the OL page in :URL: as its stable handles.
+- *Internet Archive scans*: when an edition has a readable IA scan,
+  capture extracts the item identifier from =ebooks[0].preview_url=
+  into :IA:. =M-x org-reading-list-download-pdf= then fetches the
+  item's PDF into `org-reading-list-pdf-directory', named
+  =<citekey>.pdf=, records an Org file link in :FILE:, and adds
+  =OWN (pdf)= to :HOLDINGS:. Not every IA item offers a direct PDF
+  (some are DjVu/EPUB only); the command verifies the downloaded file
+  is actually a PDF and points you at the item page if not. A link
+  abbreviation =#+LINK: ia https://archive.org/details/%s= makes
+  =[[ia:mountainsandmol00marrgoog]]= open the online reader.
+- *subjects* are uncontrolled-ish; expect both LCSH and folksonomy.
+  Prune to your tag vocabulary when filing.
+
+** Exporting to BibTeX with ol-bibtex
+
+=M-x org-bibtex= (from =ol-bibtex.el=, ship with Org) exports every
+heading bearing =:BTYPE:= to a =.bib= file. Two wrinkles:
+
+1. ol-bibtex wants =:YEAR:=, not =:DATE:=. Backfill before export:
+   #+begin_src emacs-lisp
+   (org-map-entries
+    (lambda ()
+      (when-let ((d (org-entry-get nil "DATE")))
+        (org-entry-put nil "YEAR" (substring d 0 4)))))
+   #+end_src
+2. Non-BibTeX properties (LCCN, OCLC, OLID, IA, LCC, DDC, CALLNO,
+   HOLDINGS, ADDED, FOUND,
+   COVERS) are ignored on export — by design; they stay home in Org.
+3. FILE corresponds to the =file= field citar and JabRef read, but is
+   stored here as an Org link; strip the =[[file:= … =]]= wrapper to a
+   bare path if you carry it into a =.bib=.
+
+** biblatex / citar / Zotero
+
+- biblatex consumes =date= natively (no YEAR backfill needed if you
+  export by other means) and uses =location= for ADDRESS and
+  =pagetotal= for PAGES.
+- A =.bib= produced by ol-bibtex imports cleanly into Zotero or feeds
+  citar/ebib directly should the list ever graduate to citation work.
+- Going the *other* way (Zotero → this schema), export Better BibLaTeX
+  and map =location=→ADDRESS, =date=→DATE, =pagetotal=→PAGES;
+  everything else matches by name.
+
+* Cite keys
+
+- Form: ASCII-slugged surname of the first author + 4-digit year:
+  =lotchin1997=. Anonymous works: =anon= + year. Non-ASCII letters are
+  stripped (=Müller= → =mller=) — rename by hand if that offends
+  (=mueller2003= is fine; the only rule is uniqueness + stability).
+- Collisions within the file get =a=, =b=, … suffixes, assigned in
+  capture order. The capture code checks =org-reading-list-file= only;
+  if you keep multiple list files, keep keys unique across them
+  yourself (or merge the files).
+- Keys are permanent identifiers: links (=[[#lotchin1997]]=), exported
+  citations, and notes all depend on them. Edit any other property
+  freely; never recycle a key.
+
+* Holdings and call-number codes
+
+One code vocabulary serves both =:HOLDINGS:= and =:CALLNO:=:
+
+| Code  | Meaning                                  |
+|-------+------------------------------------------|
+| OWN   | Personal collection (no call number)     |
+| IA    | Readable online at the Internet Archive  |
+| MILIB | Mechanics' Institute Library, SF         |
+| SFPL  | San Francisco Public Library             |
+| UCB   | UC Berkeley Libraries                    |
+| LOC   | Library of Congress (= LCC, if shelved)  |
+
+Formats: in =:HOLDINGS:=, bare codes, semicolon-separated, optional
+parenthetical annotation — =OWN (hardcover, studio shelf); SFPL=. In
+=:CALLNO:=, =CODE callno= pairs, semicolon-separated. Add codes as
+needed; keep them short, uppercase, and stable.
+
+=M-x org-reading-list-set-holdings= (in org-reading-list.el) sets the
+property with completion over the known codes.
+
+Checking availability is a per-catalog lookup. An Org link
+abbreviation makes the SFPL check one click from any entry:
+
+#+begin_example
+,#+LINK: sfpl-isbn https://sfpl.bibliocommons.com/v2/search?searchType=isbn&query=%s
+#+end_example
+
+then =[[sfpl-isbn:9780252066313]]= opens the catalog search. The
+Mechanics' Encore catalog doesn't take a stable ISBN search URL as
+readily — search it by title and record the call number in =:CALLNO:=
+while you're there.
+
+* Migration from the v1 schema
+
+The 21 entries in =sf-history-reading-list.org= use v1. Differences:
+
+| v1                      | v2                                      |
+|-------------------------+------------------------------------------|
+| =:PLACE:=               | =:ADDRESS:=                              |
+| =:YEAR:=                | =:DATE:= (same value to start)           |
+| AUTHOR joined with =;=  | joined with =" and "=                    |
+| no =:BTYPE:=            | =:BTYPE: book=                           |
+| no =:CUSTOM_ID:=        | generated surname+year key               |
+| =:CALLNO: 979.461 R39=  | =:CALLNO: MILIB 979.461 R39=             |
+| no =:HOLDINGS:=         | =:HOLDINGS: MILIB= (all 21 are MI holdings) |
+| no subject tags         | tags from MARC 650 (backfill optional)   |
+| =:COVERS:=              | retained, unchanged                      |
+| no TODO keyword         | =TOREAD= etc. (add =#+TODO:= line)       |
+
+The migration is implemented in =the author's one-shot migration tooling (outside this package)= (a
+one-shot companion to the main library) as two passes per entry:
+
+1. *Offline renames* — PLACE→ADDRESS, YEAR→DATE, author separator,
+   CALLNO prefix, BTYPE, HOLDINGS, and a generated CUSTOM_ID checked
+   for uniqueness within the buffer.
+2. *LoC round-trip* — one SRU fetch per entry, keyed on :ISBN: (or
+   :LCCN: for pre-ISBN titles), recovering the MARC record we
+   originally read at the Mechanics': 650/651 subject headings become
+   tags, and 010/035/050/082 backfill any missing LCCN/OCLC/LCC/DDC.
+   Fetches are throttled (`the migration tooling's throttle', default
+   7 s, ≈ 8/min). Entries that can't be fetched — no usable
+   identifier, or no LoC record — are tagged =:needs_review:= for a
+   manual pass.
+
+Run =M-x the migration driver= with point in the v1 file (prefix argument
+runs only the offline pass). Work on a git-tracked copy and review the
+diff before committing: the LoC record is LoC's cataloging, not the
+Mechanics' — for the occasional local reprint or variant edition the
+identifiers can differ, and the 082 Dewey may not equal the MI shelf
+number (that's expected; they're different fields now).
