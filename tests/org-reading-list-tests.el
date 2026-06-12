@@ -148,6 +148,22 @@
                  '("gold_mines_and_mining" "california" "19th_century"
                    "san_francisco_calif" "history"))))
 
+(ert-deftest org-reading-list-test-marc-strip-punct ()
+  (should (equal (org-reading-list--marc-strip-punct
+                  "Buried ships of San Francisco /")
+                 "Buried ships of San Francisco"))
+  (should (equal (org-reading-list--marc-strip-punct
+                  "San Francisco, California :")
+                 "San Francisco, California"))
+  (should (equal (org-reading-list--marc-strip-punct "Researchity,")
+                 "Researchity"))
+  ;; Trailing period: accepted that initials lose theirs ("Filion,
+  ;; Ron S." -> "Filion, Ron S"), matching the OL path's rendering.
+  (should (equal (org-reading-list--marc-strip-punct "Filion, Ron S.")
+                 "Filion, Ron S"))
+  (should-not (org-reading-list--marc-strip-punct nil))
+  (should-not (org-reading-list--marc-strip-punct " /")))
+
 (ert-deftest org-reading-list-test-loc-records-isbn-preference ()
   (let* ((ebook org-reading-list-test--marc-record)
          (print-rec
