@@ -683,6 +683,15 @@ deduplicated tags in document order, uncapped — callers apply
                 (when tag (push tag tags))))))))
     (delete-dups (nreverse tags))))
 
+(defun org-reading-list--marc-strip-punct (s)
+  "Strip trailing ISBD separator punctuation and whitespace from S.
+MARC transcribed fields end in prescribed punctuation (\"Title /\",
+\"Place :\", \"Publisher,\") that is noise in Org properties.  Return
+nil when S is nil or nothing remains."
+  (when s
+    (let ((v (string-trim-right s "[ /:;,.]+")))
+      (unless (string-empty-p v) v))))
+
 (defun org-reading-list--loc-records (dom isbn)
   "Return MARC record nodes from SRU response DOM, best match first.
 When ISBN is non-nil, a record whose 020 $a equals it (the edition
