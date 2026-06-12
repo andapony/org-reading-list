@@ -692,6 +692,11 @@ nil when S is nil or nothing remains."
     (let ((v (string-trim-right s "[ /:;,.]+")))
       (unless (string-empty-p v) v))))
 
+(defun org-reading-list--marc-pub-field (rec code)
+  "Return publication subfield CODE from REC's 264, falling back to 260."
+  (or (org-reading-list--marc-field rec "264" code)
+      (org-reading-list--marc-field rec "260" code)))
+
 (defun org-reading-list--loc-records (dom isbn)
   "Return MARC record nodes from SRU response DOM, best match first.
 When ISBN is non-nil, a record whose 020 $a equals it (the edition
