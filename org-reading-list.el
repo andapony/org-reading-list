@@ -318,6 +318,64 @@ rejects overlong headings."
 
 ;;;; Entry construction
 
+(defun org-reading-list--ol-entry-data (rec bibkey source)
+  "Compute entry fields from Open Library record REC.
+BIBKEY is the bibkey REC was fetched under; SOURCE is as in
+`org-reading-list-entry'.  Return the plist described in
+`org-reading-list--entry-data'."
+  (let* ((title (org-reading-list--dig rec 'title))
+         (subtitle (org-reading-list--dig rec 'subtitle))
+         (full-title (if subtitle (format "%s: %s" title subtitle) title))
+         (author (org-reading-list--authors rec))
+         (date (org-reading-list--date rec))
+         (tags (org-reading-list--subject-tags rec))
+         (pages (org-reading-list--dig rec 'number_of_pages))
+         (isbn13s (org-reading-list--dig rec 'identifiers 'isbn_13))
+         (isbn10s (org-reading-list--dig rec 'identifiers 'isbn_10))
+         (all-isbns
+          (delete-dups
+           (mapcar (lambda (i) (replace-regexp-in-string "-" "" i))
+                   (delq nil
+                         (append isbn13s isbn10s
+                                 (and (string-prefix-p "ISBN:" bibkey)
+                                      (list (substring bibkey 5))))))))
+         (isbn (or (car isbn13s) (car isbn10s)
+                   (and (string-prefix-p "ISBN:" bibkey)
+                        (substring bibkey 5))))
+         (olid (or (car (org-reading-list--dig
+                         rec 'identifiers 'openlibrary))
+                   (and (string-prefix-p "OLID:" bibkey)
+                        (substring bibkey 5))))
+         (props
+          `(("CUSTOM_ID" . ,(org-reading-list--citekey author date))
+            ("BTYPE"     . "book")
+            ("AUTHOR"    . ,author)
+            ("TITLE"     . ,full-title)
+            ("ADDRESS"   . ,(org-reading-list--first-name
+                             rec 'publish_places))
+            ("PUBLISHER" . ,(org-reading-list--first-name
+                             rec 'publishers))
+            ("DATE"      . ,date)
+            ("PAGES"     . ,(and pages (format "%s" pages)))
+            ("ISBN"      . ,isbn)
+            ("LCCN"      . ,(car (org-reading-list--dig
+                                  rec 'identifiers 'lccn)))
+            ("OCLC"      . ,(car (org-reading-list--dig
+                                  rec 'identifiers 'oclc)))
+            ("OLID"      . ,olid)
+            ("IA"        . ,(org-reading-list--ia-id rec))
+            ("LCC"       . ,(car (org-reading-list--dig
+                                  rec 'classifications
+                                  'lc_classifications)))
+            ("DDC"       . ,(car (org-reading-list--dig
+                                  rec 'classifications
+                                  'dewey_decimal_class)))
+            ("URL"       . ,(and (not isbn)
+                                 (org-reading-list--dig rec 'url)))
+            ("ADDED"     . ,(format-time-string "[%Y-%m-%d %a]"))
+            ("FOUND"     . ,source))))
+    (list :title full-title :tags tags :isbns all-isbns :props props)))
+
 (defun org-reading-list--entry-data (id &optional source)
   "Fetch Open Library data for ID and compute entry fields.
 ID and SOURCE are as in `org-reading-list-entry'.  Return a plist:
@@ -329,58 +387,7 @@ renders.  Signal a `user-error' if no record is found."
          (rec (org-reading-list--openlibrary bibkey)))
     (unless rec
       (user-error "No Open Library record for %s" bibkey))
-    (let* ((title (org-reading-list--dig rec 'title))
-           (subtitle (org-reading-list--dig rec 'subtitle))
-           (full-title (if subtitle (format "%s: %s" title subtitle) title))
-           (author (org-reading-list--authors rec))
-           (date (org-reading-list--date rec))
-           (tags (org-reading-list--subject-tags rec))
-           (pages (org-reading-list--dig rec 'number_of_pages))
-           (isbn13s (org-reading-list--dig rec 'identifiers 'isbn_13))
-           (isbn10s (org-reading-list--dig rec 'identifiers 'isbn_10))
-           (all-isbns
-            (delete-dups
-             (mapcar (lambda (i) (replace-regexp-in-string "-" "" i))
-                     (delq nil
-                           (append isbn13s isbn10s
-                                   (and (string-prefix-p "ISBN:" bibkey)
-                                        (list (substring bibkey 5))))))))
-           (isbn (or (car isbn13s) (car isbn10s)
-                     (and (string-prefix-p "ISBN:" bibkey)
-                          (substring bibkey 5))))
-           (olid (or (car (org-reading-list--dig
-                           rec 'identifiers 'openlibrary))
-                     (and (string-prefix-p "OLID:" bibkey)
-                          (substring bibkey 5))))
-           (props
-            `(("CUSTOM_ID" . ,(org-reading-list--citekey author date))
-              ("BTYPE"     . "book")
-              ("AUTHOR"    . ,author)
-              ("TITLE"     . ,full-title)
-              ("ADDRESS"   . ,(org-reading-list--first-name
-                               rec 'publish_places))
-              ("PUBLISHER" . ,(org-reading-list--first-name
-                               rec 'publishers))
-              ("DATE"      . ,date)
-              ("PAGES"     . ,(and pages (format "%s" pages)))
-              ("ISBN"      . ,isbn)
-              ("LCCN"      . ,(car (org-reading-list--dig
-                                    rec 'identifiers 'lccn)))
-              ("OCLC"      . ,(car (org-reading-list--dig
-                                    rec 'identifiers 'oclc)))
-              ("OLID"      . ,olid)
-              ("IA"        . ,(org-reading-list--ia-id rec))
-              ("LCC"       . ,(car (org-reading-list--dig
-                                    rec 'classifications
-                                    'lc_classifications)))
-              ("DDC"       . ,(car (org-reading-list--dig
-                                    rec 'classifications
-                                    'dewey_decimal_class)))
-              ("URL"       . ,(and (not isbn)
-                                   (org-reading-list--dig rec 'url)))
-              ("ADDED"     . ,(format-time-string "[%Y-%m-%d %a]"))
-              ("FOUND"     . ,source))))
-      (list :title full-title :tags tags :isbns all-isbns :props props))))
+    (org-reading-list--ol-entry-data rec bibkey source)))
 
 (defun org-reading-list--entry-string (data)
   "Render DATA from `org-reading-list--entry-data' as an Org entry."
