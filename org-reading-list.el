@@ -35,9 +35,10 @@
 ;;
 ;; Entry points:
 ;;
-;;   `org-reading-list-insert'       Insert an entry at point, fetched
-;;                                   from Open Library by ISBN, Open
-;;                                   Library edition id, or OL URL.
+;;   `org-reading-list-insert'       File an entry in the reading list
+;;                                   file, fetched from Open Library by
+;;                                   ISBN, Open Library edition id, or
+;;                                   OL URL.
 ;;   `org-reading-list-capture'      The same, shaped for org-capture
 ;;                                   templates via "%(...)".
 ;;   `org-reading-list-loc-enrich'   Fill missing LCCN/OCLC/LCC/DDC on
@@ -51,10 +52,11 @@
 ;;   `org-reading-list-download-pdf' Download an entry's Internet
 ;;                                   Archive scan as a local PDF.
 ;;
-;; A typical capture template:
+;; A typical capture template, filing under the same heading as
+;; `org-reading-list-insert' via `org-reading-list-goto-headline':
 ;;
 ;;   ("ri" "Book by ISBN" entry
-;;    (file+headline org-reading-list-file "Books")
+;;    (file+function org-reading-list-file org-reading-list-goto-headline)
 ;;    "%(org-reading-list-capture)" :empty-lines 1)
 ;;
 ;; The Library of Congress asks automated clients of lx2.loc.gov to
@@ -81,6 +83,13 @@
   "Org file holding the reading list.
 Used for cite-key collision checks and as the capture target."
   :type 'file)
+
+(defcustom org-reading-list-headline "Books"
+  "Heading in `org-reading-list-file' under which entries are filed.
+`org-reading-list-insert' appends each entry as the last child of this
+heading, mirroring the `file+headline' target of the capture template;
+the heading is created if it is absent."
+  :type 'string)
 
 (defcustom org-reading-list-max-tags 6
   "Maximum number of subject tags attached from captured or fetched data."
@@ -659,14 +668,76 @@ afterward — LCSH is wordier than a working set of tags wants."
     (message "LoC tags: %s"
              (if added (string-join added " ") "none found"))))
 
+;;;; Filing entries under a headline
+
+(defun org-reading-list--demote (entry levels)
+  "Add LEVELS leading stars to every heading line in ENTRY string."
+  (if (<= levels 0)
+      entry
+    (replace-regexp-in-string
+     "^\\*+ " (concat (make-string levels ?*) "\\&") entry)))
+
+(defun org-reading-list--find-or-create-headline (headline)
+  "Return the position of HEADLINE in the current buffer.
+Match HEADLINE as `org-capture's `file+headline' target does, creating
+it as a top-level heading at the end of the buffer when absent."
+  (or (org-find-exact-headline-in-buffer headline (current-buffer) t)
+      (progn
+        (goto-char (point-max))
+        (unless (bolp) (insert "\n"))
+        (insert "* " headline "\n")
+        (line-beginning-position 0))))
+
+(defun org-reading-list--insert-under-headline (entry headline)
+  "File ENTRY as the last child of HEADLINE in the current Org buffer.
+HEADLINE is matched and created at the end of the buffer when absent,
+like the capture template's `file+headline' target.  ENTRY, a
+top-level Org subtree string, is demoted to sit one level below
+HEADLINE.  Return the buffer position of the inserted entry."
+  (goto-char (org-reading-list--find-or-create-headline headline))
+  (let ((level (org-current-level)))
+    (org-end-of-subtree t)
+    (unless (bolp) (insert "\n"))
+    (insert "\n")
+    (let ((start (point)))
+      (insert (org-reading-list--demote (string-trim-right entry) level)
+              "\n")
+      start)))
+
+;;;###autoload
+(defun org-reading-list-goto-headline ()
+  "Move point to `org-reading-list-headline', creating it if absent.
+Intended as the location function of a `file+function' capture target:
+
+  (file+function org-reading-list-file org-reading-list-goto-headline)
+
+so Org capture and `org-reading-list-insert' file under the same
+heading.  Org capture visits and widens the buffer before calling this;
+leaving point on the heading makes capture add the new entry as its
+child, as `file+headline' would."
+  (goto-char (org-reading-list--find-or-create-headline
+              org-reading-list-headline)))
+
 ;;;; Entry points
 
 ;;;###autoload
 (defun org-reading-list-insert (id)
-  "Insert a reading-list entry for ID at point.
-ID is an ISBN, an Open Library edition id, or an openlibrary.org URL."
+  "File a reading-list entry for ID in `org-reading-list-file'.
+ID is an ISBN, an Open Library edition id, or an openlibrary.org URL.
+The entry is appended as the last child of `org-reading-list-headline'
+\(created if absent), mirroring the capture template's target, and the
+file is displayed with point on the new entry."
   (interactive "sISBN / OL edition id / OL URL: ")
-  (insert (org-reading-list-entry id)))
+  (let ((entry (org-reading-list-entry id))
+        (buf (find-file-noselect org-reading-list-file))
+        pos)
+    (with-current-buffer buf
+      (save-restriction
+        (widen)
+        (setq pos (org-reading-list--insert-under-headline
+                   entry org-reading-list-headline))))
+    (pop-to-buffer buf)
+    (goto-char pos)))
 
 ;;;###autoload
 (defun org-reading-list-capture ()
