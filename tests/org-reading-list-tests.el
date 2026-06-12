@@ -362,7 +362,8 @@
   "Stubbed --entry-data result matching the file's entry exactly.")
 
 (defmacro org-reading-list-test--with-dup-file (&rest body)
-  "Run BODY with `org-reading-list-file' bound to a fresh temp file."
+  "Run BODY with `org-reading-list-file' bound to a fresh temp file.
+BODY may reference `file', the temp file's path."
   `(let* ((file (make-temp-file "orl-dup" nil ".org"
                                 org-reading-list-test--dup-file-content))
           (org-reading-list-file file))
