@@ -1,13 +1,19 @@
 EMACS ?= emacs
 BATCH  = $(EMACS) -Q --batch -L .
 
+# Every Emacs Lisp source we ship, so compilation catches problems
+# (missing lexical-binding cookies, warnings) in any of them, not just
+# the main file.  Generated artifacts (*-pkg.el, *-autoloads.el) are not
+# listed here; they are produced by the package manager at install time.
+EL = org-reading-list.el $(wildcard tests/*.el)
+
 .PHONY: all compile checkdoc test package-lint clean
 
 all: compile checkdoc test
 
 compile:
 	$(BATCH) --eval "(setq byte-compile-error-on-warn t)" \
-	         -f batch-byte-compile org-reading-list.el
+	         -f batch-byte-compile $(EL)
 
 checkdoc:
 	$(BATCH) --eval "(checkdoc-file \"org-reading-list.el\")"
@@ -28,4 +34,4 @@ package-lint:
 	  -f package-lint-batch-and-exit org-reading-list.el
 
 clean:
-	rm -f *.elc
+	rm -f *.elc tests/*.elc
