@@ -198,6 +198,86 @@
     (should (equal (car (org-reading-list--loc-records dom nil))
                    ebook))))
 
+(defconst org-reading-list-test--loc-buried-ships
+  '(record nil
+           (datafield ((tag . "010") (ind1 . " ") (ind2 . " "))
+                      (subfield ((code . "a")) "  2023911799"))
+           (datafield ((tag . "020") (ind1 . " ") (ind2 . " "))
+                      (subfield ((code . "a")) "9798393569716")
+                      (subfield ((code . "q")) "pbk"))
+           (datafield ((tag . "035") (ind1 . " ") (ind2 . " "))
+                      (subfield ((code . "a")) "(OCoLC)on1406777487"))
+           (datafield ((tag . "050") (ind1 . "0") (ind2 . "0"))
+                      (subfield ((code . "a")) "F869.S347")
+                      (subfield ((code . "b")) "F555 2023"))
+           (datafield ((tag . "100") (ind1 . "1") (ind2 . " "))
+                      (subfield ((code . "a")) "Filion, Ron S.")
+                      (subfield ((code . "e")) "author"))
+           (datafield ((tag . "245") (ind1 . "1") (ind2 . "0"))
+                      (subfield ((code . "a")) "Buried ships of San Francisco /")
+                      (subfield ((code . "c")) "Ron S. Filion."))
+           (datafield ((tag . "264") (ind1 . " ") (ind2 . "1"))
+                      (subfield ((code . "a")) "San Francisco, California :")
+                      (subfield ((code . "b")) "Researchity,")
+                      (subfield ((code . "c")) "[2023]"))
+           (datafield ((tag . "300") (ind1 . " ") (ind2 . " "))
+                      (subfield ((code . "a")) "i, 643 pages"))
+           (datafield ((tag . "650") (ind1 . " ") (ind2 . "0"))
+                      (subfield ((code . "a")) "Historic ships")
+                      (subfield ((code . "z")) "California")
+                      (subfield ((code . "z")) "San Francisco"))
+           (datafield ((tag . "650") (ind1 . " ") (ind2 . "0"))
+                      (subfield ((code . "a")) "Urban archaeology")
+                      (subfield ((code . "z")) "California")
+                      (subfield ((code . "z")) "San Francisco")))
+  "LoC MARC record for ISBN 9798393569716, trimmed from the real SRU response.
+Deliberately lacks an 082 field (the real record has none), covering the
+DDC-nil case.")
+
+(ert-deftest org-reading-list-test-marc-entry-data ()
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (data (org-reading-list--marc-entry-data
+                (list org-reading-list-test--loc-buried-ships)
+                "ISBN:9798393569716" nil))
+         (props (plist-get data :props)))
+    (should (equal (plist-get data :title)
+                   "Buried ships of San Francisco"))
+    (should (equal (plist-get data :isbns) '("9798393569716")))
+    (should (equal (plist-get data :tags)
+                   '("historic_ships" "california" "san_francisco"
+                     "urban_archaeology")))
+    (dolist (kv '(("CUSTOM_ID" . "filion2023")
+                  ("BTYPE"     . "book")
+                  ("AUTHOR"    . "Filion, Ron S")
+                  ("TITLE"     . "Buried ships of San Francisco")
+                  ("ADDRESS"   . "San Francisco, California")
+                  ("PUBLISHER" . "Researchity")
+                  ("DATE"      . "2023")
+                  ("PAGES"     . "643")
+                  ("ISBN"      . "9798393569716")
+                  ("LCCN"      . "2023911799")
+                  ("OCLC"      . "on1406777487")
+                  ("LCC"       . "F869.S347 F555 2023")
+                  ("DDC"       . nil)))
+      (should (equal (cdr (assoc (car kv) props)) (cdr kv))))
+    (should (equal (cdr (assoc "FOUND" props)) nil))))
+
+(ert-deftest org-reading-list-test-marc-entry-data-fall-through ()
+  ;; Author only in the second record; the first still supplies title.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (bare '(record nil
+                        (datafield ((tag . "245") (ind1 . "0") (ind2 . "0"))
+                                   (subfield ((code . "a")) "Anon title /"))))
+         (data (org-reading-list--marc-entry-data
+                (list bare org-reading-list-test--loc-buried-ships)
+                "ISBN:1111111111" nil))
+         (props (plist-get data :props)))
+    (should (equal (plist-get data :title) "Anon title"))
+    (should (equal (cdr (assoc "AUTHOR" props)) "Filion, Ron S"))
+    ;; Queried ISBN unioned with every record's 020s.
+    (should (equal (plist-get data :isbns)
+                   '("1111111111" "9798393569716")))))
+
 ;;;; Filing entries under a headline
 
 (ert-deftest org-reading-list-test-demote ()
