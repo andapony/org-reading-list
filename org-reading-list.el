@@ -316,15 +316,13 @@ rejects overlong headings."
 
 ;;;; Entry construction
 
-(defun org-reading-list-entry (id &optional source)
-  "Return an Org entry string for ID from Open Library data.
-ID is an ISBN, an Open Library edition id, or an openlibrary.org URL
-\(see `org-reading-list--bibkey').  SOURCE, if non-nil, is recorded in
-the :FOUND: property (an article URL, an Org link, a person's name —
-wherever you ran across the book).  Entries without an ISBN record
-:OLID: and the Open Library page in :URL: instead; editions with a
-readable Internet Archive scan record the item id in :IA:.  Signal a
-`user-error' if no record is found."
+(defun org-reading-list--entry-data (id &optional source)
+  "Fetch Open Library data for ID and compute entry fields.
+ID and SOURCE are as in `org-reading-list-entry'.  Return a plist:
+:title is the full title, :tags the subject tags, :isbns every ISBN
+on the record (hyphens stripped; used for duplicate checks), and
+:props the property alist that `org-reading-list--entry-string'
+renders.  Signal a `user-error' if no record is found."
   (let* ((bibkey (org-reading-list--bibkey id))
          (rec (org-reading-list--openlibrary bibkey)))
     (unless rec
@@ -336,8 +334,16 @@ readable Internet Archive scan record the item id in :IA:.  Signal a
            (date (org-reading-list--date rec))
            (tags (org-reading-list--subject-tags rec))
            (pages (org-reading-list--dig rec 'number_of_pages))
-           (isbn (or (car (org-reading-list--dig rec 'identifiers 'isbn_13))
-                     (car (org-reading-list--dig rec 'identifiers 'isbn_10))
+           (isbn13s (org-reading-list--dig rec 'identifiers 'isbn_13))
+           (isbn10s (org-reading-list--dig rec 'identifiers 'isbn_10))
+           (all-isbns
+            (delete-dups
+             (mapcar (lambda (i) (replace-regexp-in-string "-" "" i))
+                     (delq nil
+                           (append isbn13s isbn10s
+                                   (and (string-prefix-p "ISBN:" bibkey)
+                                        (list (substring bibkey 5))))))))
+           (isbn (or (car isbn13s) (car isbn10s)
                      (and (string-prefix-p "ISBN:" bibkey)
                           (substring bibkey 5))))
            (olid (or (car (org-reading-list--dig
@@ -372,16 +378,32 @@ readable Internet Archive scan record the item id in :IA:.  Signal a
                                    (org-reading-list--dig rec 'url)))
               ("ADDED"     . ,(format-time-string "[%Y-%m-%d %a]"))
               ("FOUND"     . ,source))))
-      (concat
-       (format "* TOREAD %s%s\n" full-title
-               (if tags (format " :%s:" (string-join tags ":")) ""))
-       ":PROPERTIES:\n"
-       (mapconcat (lambda (kv)
-                    (if (cdr kv)
-                        (format ":%s: %s\n" (car kv) (cdr kv))
-                      ""))
-                  props "")
-       ":END:\n"))))
+      (list :title full-title :tags tags :isbns all-isbns :props props))))
+
+(defun org-reading-list--entry-string (data)
+  "Render DATA from `org-reading-list--entry-data' as an Org entry."
+  (let ((tags (plist-get data :tags)))
+    (concat
+     (format "* TOREAD %s%s\n" (plist-get data :title)
+             (if tags (format " :%s:" (string-join tags ":")) ""))
+     ":PROPERTIES:\n"
+     (mapconcat (lambda (kv)
+                  (if (cdr kv)
+                      (format ":%s: %s\n" (car kv) (cdr kv))
+                    ""))
+                (plist-get data :props) "")
+     ":END:\n")))
+
+(defun org-reading-list-entry (id &optional source)
+  "Return an Org entry string for ID from Open Library data.
+ID is an ISBN, an Open Library edition id, or an openlibrary.org URL
+\(see `org-reading-list--bibkey').  SOURCE, if non-nil, is recorded in
+the :FOUND: property (an article URL, an Org link, a person's name —
+wherever you ran across the book).  Entries without an ISBN record
+:OLID: and the Open Library page in :URL: instead; editions with a
+readable Internet Archive scan record the item id in :IA:.  Signal a
+`user-error' if no record is found."
+  (org-reading-list--entry-string (org-reading-list--entry-data id source)))
 
 ;;;; Holdings
 

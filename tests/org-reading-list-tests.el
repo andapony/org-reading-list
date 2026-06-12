@@ -235,5 +235,19 @@
     (should (org-at-heading-p))
     (should (equal (org-get-heading t t t t) "Reading"))))
 
+;;;; Entry rendering
+
+(ert-deftest org-reading-list-test-entry-string ()
+  (should (equal (org-reading-list--entry-string
+                  '(:title "One: A Tale" :tags ("a" "b")
+                    :props (("CUSTOM_ID" . "smith2020")
+                            ("TITLE" . "One: A Tale")
+                            ("LCCN" . nil))))
+                 (concat "* TOREAD One: A Tale :a:b:\n"
+                         ":PROPERTIES:\n"
+                         ":CUSTOM_ID: smith2020\n"
+                         ":TITLE: One: A Tale\n"
+                         ":END:\n"))))
+
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here
