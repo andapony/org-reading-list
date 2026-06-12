@@ -247,6 +247,13 @@
                          ":PROPERTIES:\n"
                          ":CUSTOM_ID: smith2020\n"
                          ":TITLE: One: A Tale\n"
+                         ":END:\n")))
+  (should (equal (org-reading-list--entry-string
+                  '(:title "One: A Tale" :tags nil
+                    :props (("CUSTOM_ID" . "smith2020"))))
+                 (concat "* TOREAD One: A Tale\n"
+                         ":PROPERTIES:\n"
+                         ":CUSTOM_ID: smith2020\n"
                          ":END:\n"))))
 
 (provide 'org-reading-list-tests)
