@@ -719,6 +719,87 @@ sources."
   "Apply FN to each record in RECS; return the first non-nil result."
   (seq-some fn recs))
 
+;;;; Library of Congress: entry data (lookup fallback)
+
+(defun org-reading-list--marc-entry-data (recs bibkey source)
+  "Compute entry fields from LoC MARC records RECS.
+The MARC sibling of `org-reading-list--ol-entry-data': return the
+same plist shape, described in `org-reading-list--entry-data'.  RECS
+is best match first, as `org-reading-list--loc-records' returns;
+each field falls through the records in order.  BIBKEY is the
+\"ISBN:...\" bibkey that was queried; SOURCE is as in
+`org-reading-list-entry'.  Identifiers with no LoC equivalent
+\(:OLID:, :IA:, :URL:) are omitted."
+  (let* ((queried (replace-regexp-in-string
+                   "-" "" (substring bibkey (length "ISBN:"))))
+         (title (org-reading-list--marc-strip-punct
+                 (org-reading-list--loc-first
+                  recs
+                  (lambda (r)
+                    (org-reading-list--marc-field r "245" "a" "b")))))
+         (author (org-reading-list--marc-strip-punct
+                  (org-reading-list--loc-first
+                   recs
+                   (lambda (r) (org-reading-list--marc-field r "100")))))
+         (date (org-reading-list--loc-first
+                recs
+                (lambda (r)
+                  (let ((c (org-reading-list--marc-pub-field r "c")))
+                    (when (and c (string-match "[0-9]\\{4\\}" c))
+                      (match-string 0 c))))))
+         (pages (org-reading-list--loc-first
+                 recs
+                 (lambda (r)
+                   (let ((a (org-reading-list--marc-field r "300")))
+                     (when (and a (string-match "[0-9]+" a))
+                       (match-string 0 a))))))
+         (isbns (delete-dups
+                 (cons queried
+                       (mapcan (lambda (r)
+                                 (org-reading-list--marc-isbns r "a"))
+                               recs))))
+         (tags (seq-take (org-reading-list--marc-subject-tags recs)
+                         org-reading-list-max-tags))
+         (props
+          `(("CUSTOM_ID" . ,(org-reading-list--citekey author date))
+            ("BTYPE"     . "book")
+            ("AUTHOR"    . ,author)
+            ("TITLE"     . ,title)
+            ("ADDRESS"   . ,(org-reading-list--loc-first
+                             recs
+                             (lambda (r)
+                               (org-reading-list--marc-strip-punct
+                                (org-reading-list--marc-pub-field r "a")))))
+            ("PUBLISHER" . ,(org-reading-list--loc-first
+                             recs
+                             (lambda (r)
+                               (org-reading-list--marc-strip-punct
+                                (org-reading-list--marc-pub-field r "b")))))
+            ("DATE"      . ,date)
+            ("PAGES"     . ,pages)
+            ("ISBN"      . ,queried)
+            ("LCCN"      . ,(org-reading-list--loc-first
+                             recs
+                             (lambda (r)
+                               (let ((v (org-reading-list--marc-field
+                                         r "010")))
+                                 (and v (replace-regexp-in-string
+                                         " " "" v))))))
+            ("OCLC"      . ,(org-reading-list--loc-first
+                             recs #'org-reading-list--marc-oclc))
+            ("LCC"       . ,(org-reading-list--loc-first
+                             recs
+                             (lambda (r)
+                               (org-reading-list--marc-field
+                                r "050" "a" "b"))))
+            ("DDC"       . ,(org-reading-list--loc-first
+                             recs
+                             (lambda (r)
+                               (org-reading-list--marc-field r "082"))))
+            ("ADDED"     . ,(format-time-string "[%Y-%m-%d %a]"))
+            ("FOUND"     . ,source))))
+    (list :title title :tags tags :isbns isbns :props props)))
+
 ;;;; Library of Congress: applying fetched data
 
 (defun org-reading-list--loc-apply-fields (recs &optional force)
