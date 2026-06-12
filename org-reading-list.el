@@ -861,6 +861,7 @@ instead of inserting."
                      (org-reading-list--entry-string data)
                      org-reading-list-headline))))))
     (pop-to-buffer buf)
+    (widen)
     (goto-char (or pos (plist-get (cdr dup) :pos)))
     (unless pos
       (message "Already in list: %s" (plist-get (cdr dup) :heading)))))
