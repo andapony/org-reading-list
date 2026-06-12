@@ -432,6 +432,52 @@ properties yield nil fields and never match anything."
                 entries))))
     (nreverse entries)))
 
+(defun org-reading-list--dup-title-key (title)
+  "Slug of TITLE's main part (before any subtitle colon), or nil."
+  (when (stringp title)
+    (let ((key (org-reading-list--slug (car (split-string title ":")))))
+      (unless (string-empty-p key) key))))
+
+(defun org-reading-list--dup-surname-key (author)
+  "Slug of AUTHOR's surname (before the first comma), or nil.
+AUTHOR is in inverted \"Surname, Given\" form."
+  (when (stringp author)
+    (let ((key (org-reading-list--slug (car (split-string author ",")))))
+      (unless (string-empty-p key) key))))
+
+(defun org-reading-list--find-duplicate (data entries)
+  "Find an entry among ENTRIES that DATA likely duplicates.
+DATA is a plist from `org-reading-list--entry-data'; ENTRIES is from
+`org-reading-list--scan-entries'.  Return (exact . ENTRY) when any
+fetched ISBN or the OLID matches, (similar . ENTRY) when both the
+slugged main title and author surname match, nil otherwise.  Exact
+wins over similar; similar requires an author on both sides, so
+year, subtitle, and publisher differences alone do not defeat it."
+  (let* ((isbns (plist-get data :isbns))
+         (props (plist-get data :props))
+         (olid (cdr (assoc "OLID" props)))
+         (title-key (org-reading-list--dup-title-key
+                     (plist-get data :title)))
+         (surname-key (org-reading-list--dup-surname-key
+                       (cdr (assoc "AUTHOR" props)))))
+    (or (let ((hit (seq-find
+                    (lambda (e)
+                      (or (seq-intersection isbns (plist-get e :isbns))
+                          (and olid (equal olid (plist-get e :olid)))))
+                    entries)))
+          (and hit (cons 'exact hit)))
+        (and title-key surname-key
+             (let ((hit (seq-find
+                         (lambda (e)
+                           (and (equal title-key
+                                       (org-reading-list--dup-title-key
+                                        (plist-get e :title)))
+                                (equal surname-key
+                                       (org-reading-list--dup-surname-key
+                                        (plist-get e :author)))))
+                         entries)))
+               (and hit (cons 'similar hit)))))))
+
 ;;;; Holdings
 
 ;;;###autoload

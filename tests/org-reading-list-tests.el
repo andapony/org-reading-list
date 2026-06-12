@@ -292,5 +292,60 @@
     (org-mode)
     (should (null (org-reading-list--scan-entries)))))
 
+(defconst org-reading-list-test--dup-entries
+  '((:pos 1 :heading "Books"
+     :isbns nil :olid nil :title nil :author nil)
+    (:pos 10 :heading "One: A Tale"
+     :isbns ("0252066316") :olid "OL1M"
+     :title "One: A Tale" :author "Smith, Ann")
+    (:pos 99 :heading "Other Book"
+     :isbns nil :olid nil :title "Other Book" :author "Smith, Ann"))
+  "Scanner output stand-in for matcher tests.")
+
+(ert-deftest org-reading-list-test-find-dup-isbn-cross-form ()
+  ;; Fetched record carries ISBN-13+10; stored entry has only the 10.
+  (let ((dup (org-reading-list--find-duplicate
+              '(:title "Unrelated" :isbns ("9780252066313" "0252066316")
+                :props (("AUTHOR" . nil)))
+              org-reading-list-test--dup-entries)))
+    (should (eq (car dup) 'exact))
+    (should (equal (plist-get (cdr dup) :heading) "One: A Tale"))))
+
+(ert-deftest org-reading-list-test-find-dup-olid ()
+  (let ((dup (org-reading-list--find-duplicate
+              '(:title "X" :isbns nil
+                :props (("OLID" . "OL1M") ("AUTHOR" . nil)))
+              org-reading-list-test--dup-entries)))
+    (should (eq (car dup) 'exact))))
+
+(ert-deftest org-reading-list-test-find-dup-similar-edition ()
+  ;; Different subtitle, no shared identifier: publisher/edition change.
+  (let ((dup (org-reading-list--find-duplicate
+              '(:title "One: Revised and Expanded" :isbns ("1111111111")
+                :props (("AUTHOR" . "Smith, Ann B.")))
+              org-reading-list-test--dup-entries)))
+    (should (eq (car dup) 'similar))
+    (should (equal (plist-get (cdr dup) :heading) "One: A Tale"))))
+
+(ert-deftest org-reading-list-test-find-dup-miss-different-title ()
+  (should-not (org-reading-list--find-duplicate
+               '(:title "Third Thing" :isbns ("2222222222")
+                 :props (("AUTHOR" . "Smith, Ann")))
+               org-reading-list-test--dup-entries)))
+
+(ert-deftest org-reading-list-test-find-dup-no-author-no-similar ()
+  ;; Anonymous works must not soft-match on title alone.
+  (should-not (org-reading-list--find-duplicate
+               '(:title "One: A Tale" :isbns nil
+                 :props (("AUTHOR" . nil)))
+               org-reading-list-test--dup-entries)))
+
+(ert-deftest org-reading-list-test-find-dup-exact-beats-similar ()
+  (let ((dup (org-reading-list--find-duplicate
+              '(:title "One: A Tale" :isbns ("0252066316")
+                :props (("AUTHOR" . "Smith, Ann")))
+              org-reading-list-test--dup-entries)))
+    (should (eq (car dup) 'exact))))
+
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here
