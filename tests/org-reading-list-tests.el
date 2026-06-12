@@ -164,5 +164,76 @@
     (should (equal (car (org-reading-list--loc-records dom nil))
                    ebook))))
 
+;;;; Filing entries under a headline
+
+(ert-deftest org-reading-list-test-demote ()
+  (should (equal (org-reading-list--demote "* A\ntext\n** B\n" 1)
+                 "** A\ntext\n*** B\n"))
+  (should (equal (org-reading-list--demote "* A\n" 0) "* A\n")))
+
+(defconst org-reading-list-test--entry
+  "* TOREAD New\n:PROPERTIES:\n:CUSTOM_ID: new\n:END:\n"
+  "A minimal top-level entry string for filing tests.")
+
+(ert-deftest org-reading-list-test-insert-under-existing-headline ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD Old\n:PROPERTIES:\n:CUSTOM_ID: old\n"
+            ":END:\n* Reference\nnote\n")
+    (org-reading-list--insert-under-headline
+     org-reading-list-test--entry "Books")
+    ;; The new entry is demoted to a child of Books (level 2).
+    (goto-char (point-min))
+    (should (re-search-forward "^\\*\\* TOREAD New$" nil t))
+    (let ((new-pos (match-beginning 0))
+          (books-pos (progn (goto-char (point-min))
+                            (re-search-forward "^\\* Books$" nil t)
+                            (match-beginning 0)))
+          (ref-pos (progn (goto-char (point-min))
+                          (re-search-forward "^\\* Reference$" nil t)
+                          (match-beginning 0))))
+      ;; It is filed inside the Books subtree, before the next heading.
+      (should (< books-pos new-pos ref-pos)))
+    ;; The pre-existing entry is untouched.
+    (goto-char (point-min))
+    (should (re-search-forward "^\\*\\* TOREAD Old$" nil t))))
+
+(ert-deftest org-reading-list-test-insert-creates-headline ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Reference\nnote\n")
+    (org-reading-list--insert-under-headline
+     org-reading-list-test--entry "Books")
+    (goto-char (point-min))
+    (should (re-search-forward "^\\* Books$" nil t))
+    ;; The entry is filed beneath the freshly created headline, with its
+    ;; property drawer intact and readable as an entry property.
+    (should (re-search-forward "^\\*\\* TOREAD New$" nil t))
+    (should (equal (org-entry-get nil "CUSTOM_ID") "new"))))
+
+;;;; Capture target (shared headline)
+
+(ert-deftest org-reading-list-test-goto-headline-existing ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD Old\n:PROPERTIES:\n:CUSTOM_ID: old\n"
+            ":END:\n* Reference\nnote\n")
+    (goto-char (point-max))
+    (let ((org-reading-list-headline "Books"))
+      (org-reading-list-goto-headline))
+    ;; Leaves point on the heading, as a `file+function' target must.
+    (should (org-at-heading-p))
+    (should (equal (org-get-heading t t t t) "Books"))))
+
+(ert-deftest org-reading-list-test-goto-headline-honors-custom ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Reference\nnote\n")
+    ;; Reads `org-reading-list-headline', creating it when absent.
+    (let ((org-reading-list-headline "Reading"))
+      (org-reading-list-goto-headline))
+    (should (org-at-heading-p))
+    (should (equal (org-get-heading t t t t) "Reading"))))
+
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here

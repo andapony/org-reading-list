@@ -49,7 +49,8 @@ recent Org.
 
 (add-to-list 'org-capture-templates
              '("r" "Book for the reading list" entry
-               (file+headline org-reading-list-file "Books")
+               (file+function org-reading-list-file
+                              org-reading-list-goto-headline)
                "%(org-reading-list-capture)" :empty-lines 1))
 #+end_src
 
@@ -71,9 +72,15 @@ single =use-package= declaration:
   :config
   (add-to-list 'org-capture-templates
                '("r" "Book for the reading list" entry
-                 (file+headline org-reading-list-file "Books")
+                 (file+function org-reading-list-file
+                                org-reading-list-goto-headline)
                  "%(org-reading-list-capture)" :empty-lines 1)))
 #+end_src
+
+Both entry points file under =org-reading-list-headline= (default
+"Books", created if absent): =org-reading-list-insert= directly, and the
+capture template via =org-reading-list-goto-headline= in its
+=file+function= target. Change that one option and both follow.
 
 If the Library of Congress SRU index stops matching, override
 =org-reading-list-loc-sru-url= here too — see its docstring.
@@ -108,9 +115,12 @@ reading-list file:
 
 * Usage
 
-- =M-x org-reading-list-insert= (or the capture template): prompts for
-  an ISBN, OL edition id, or OL URL, plus an optional "found via"
-  source, and inserts a fully populated entry.
+- =M-x org-reading-list-insert=: prompts for an ISBN, OL edition id,
+  or OL URL and files a fully populated entry under the
+  =org-reading-list-headline= heading (default "Books", created if
+  absent) in =org-reading-list-file=, then shows it. The capture
+  template does the same via =org-capture=, and also prompts for an
+  optional "found via" source.
 - =M-x org-reading-list-loc-enrich= on an entry: fills missing
   LCCN/OCLC/LCC/DDC from the Library of Congress record (queried by
   ISBN, or LCCN for pre-ISBN books). =C-u= overwrites existing values
