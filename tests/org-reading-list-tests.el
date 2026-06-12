@@ -271,6 +271,10 @@
       ;; (its nil fields can never match).
       (should (= (length es) 3))
       (should (equal (plist-get (nth 0 es) :heading) "Books"))
+      (should (= (plist-get (nth 0 es) :pos) 1))
+      (should (< (plist-get (nth 0 es) :pos)
+                 (plist-get (nth 1 es) :pos)
+                 (plist-get (nth 2 es) :pos)))
       (let ((one (nth 1 es)))
         (should (equal (plist-get one :isbns)
                        '("9780252066313" "0252066316")))
@@ -282,6 +286,11 @@
         (should (equal (plist-get one :heading) "TOREAD One: A Tale")))
       (should (equal (plist-get (nth 2 es) :olid) "OL1M"))
       (should (null (plist-get (nth 2 es) :isbns))))))
+
+(ert-deftest org-reading-list-test-scan-entries-empty ()
+  (with-temp-buffer
+    (org-mode)
+    (should (null (org-reading-list--scan-entries)))))
 
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here

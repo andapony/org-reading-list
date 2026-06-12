@@ -410,10 +410,10 @@ readable Internet Archive scan record the item id in :IA:.  Signal a
 (defun org-reading-list--scan-entries ()
   "Collect duplicate-check data for every heading in the current buffer.
 Return, in buffer order, one plist per heading with keys :pos (start
-of the heading line), :heading (text sans keyword/tags), :isbns (the
-:ISBN: property split on commas/spaces, hyphens stripped), :olid,
-:title, and :author.  Headings without these properties yield nil
-fields and never match anything."
+of the heading line), :heading (text sans TODO keyword, priority, tags,
+and comment), :isbns (the :ISBN: property split on commas/spaces,
+hyphens stripped), :olid, :title, and :author.  Headings without these
+properties yield nil fields and never match anything."
   (let (entries)
     (save-excursion
       (goto-char (point-min))
