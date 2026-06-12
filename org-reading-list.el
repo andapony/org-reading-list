@@ -721,6 +721,28 @@ sources."
 
 ;;;; Library of Congress: entry data (lookup fallback)
 
+(defun org-reading-list--loc-id-fields (recs)
+  "Identifier properties from MARC RECS as an alist, values possibly nil.
+Covers LCCN, OCLC, LCC, and DDC (MARC 010, 035, 050, 082),
+consulting RECS in order for each field; the LCCN's embedded spaces
+are stripped.  Shared by `org-reading-list--marc-entry-data' and
+`org-reading-list--loc-apply-fields'."
+  `(("LCCN" . ,(org-reading-list--loc-first
+                recs
+                (lambda (r)
+                  (let ((v (org-reading-list--marc-field r "010")))
+                    (and v (replace-regexp-in-string " " "" v))))))
+    ("OCLC" . ,(org-reading-list--loc-first
+                recs #'org-reading-list--marc-oclc))
+    ("LCC"  . ,(org-reading-list--loc-first
+                recs
+                (lambda (r)
+                  (org-reading-list--marc-field r "050" "a" "b"))))
+    ("DDC"  . ,(org-reading-list--loc-first
+                recs
+                (lambda (r)
+                  (org-reading-list--marc-field r "082"))))))
+
 (defun org-reading-list--marc-entry-data (recs bibkey source)
   "Compute entry fields from LoC MARC records RECS.
 The MARC sibling of `org-reading-list--ol-entry-data': return the
@@ -732,15 +754,16 @@ each field falls through the records in order.  BIBKEY is the
 \(:OLID:, :IA:, :URL:) are omitted."
   (let* ((queried (replace-regexp-in-string
                    "-" "" (substring bibkey (length "ISBN:"))))
-         (title (org-reading-list--marc-strip-punct
-                 (org-reading-list--loc-first
+         (title (org-reading-list--loc-first
+                 recs
+                 (lambda (r)
+                   (org-reading-list--marc-strip-punct
+                    (org-reading-list--marc-field r "245" "a" "b")))))
+         (author (org-reading-list--loc-first
                   recs
                   (lambda (r)
-                    (org-reading-list--marc-field r "245" "a" "b")))))
-         (author (org-reading-list--marc-strip-punct
-                  (org-reading-list--loc-first
-                   recs
-                   (lambda (r) (org-reading-list--marc-field r "100")))))
+                    (org-reading-list--marc-strip-punct
+                     (org-reading-list--marc-field r "100")))))
          (date (org-reading-list--loc-first
                 recs
                 (lambda (r)
@@ -778,24 +801,7 @@ each field falls through the records in order.  BIBKEY is the
             ("DATE"      . ,date)
             ("PAGES"     . ,pages)
             ("ISBN"      . ,queried)
-            ("LCCN"      . ,(org-reading-list--loc-first
-                             recs
-                             (lambda (r)
-                               (let ((v (org-reading-list--marc-field
-                                         r "010")))
-                                 (and v (replace-regexp-in-string
-                                         " " "" v))))))
-            ("OCLC"      . ,(org-reading-list--loc-first
-                             recs #'org-reading-list--marc-oclc))
-            ("LCC"       . ,(org-reading-list--loc-first
-                             recs
-                             (lambda (r)
-                               (org-reading-list--marc-field
-                                r "050" "a" "b"))))
-            ("DDC"       . ,(org-reading-list--loc-first
-                             recs
-                             (lambda (r)
-                               (org-reading-list--marc-field r "082"))))
+            ,@(org-reading-list--loc-id-fields recs)
             ("ADDED"     . ,(format-time-string "[%Y-%m-%d %a]"))
             ("FOUND"     . ,source))))
     (list :title title :tags tags :isbns isbns :props props)))
@@ -807,22 +813,7 @@ each field falls through the records in order.  BIBKEY is the
 Covers :LCCN:, :OCLC:, :LCC:, and :DDC: (MARC 010, 035, 050, 082),
 consulting RECS in order for each field.  Existing values are kept
 unless FORCE is non-nil.  Return the list of property names changed."
-  (let ((fields
-         `(("LCCN" . ,(org-reading-list--loc-first
-                       recs
-                       (lambda (r)
-                         (let ((v (org-reading-list--marc-field r "010")))
-                           (and v (replace-regexp-in-string " " "" v))))))
-           ("OCLC" . ,(org-reading-list--loc-first
-                       recs #'org-reading-list--marc-oclc))
-           ("LCC"  . ,(org-reading-list--loc-first
-                       recs
-                       (lambda (r)
-                         (org-reading-list--marc-field r "050" "a" "b"))))
-           ("DDC"  . ,(org-reading-list--loc-first
-                       recs
-                       (lambda (r)
-                         (org-reading-list--marc-field r "082"))))))
+  (let ((fields (org-reading-list--loc-id-fields recs))
         (changed '()))
     (dolist (kv fields)
       (let ((name (car kv))

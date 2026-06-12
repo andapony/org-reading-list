@@ -278,6 +278,16 @@ DDC-nil case.")
     (should (equal (plist-get data :isbns)
                    '("1111111111" "9798393569716")))))
 
+(ert-deftest org-reading-list-test-marc-entry-data-tags-cap ()
+  ;; :tags is truncated to `org-reading-list-max-tags'.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (org-reading-list-max-tags 2)
+         (data (org-reading-list--marc-entry-data
+                (list org-reading-list-test--loc-buried-ships)
+                "ISBN:9798393569716" nil)))
+    (should (equal (plist-get data :tags)
+                   '("historic_ships" "california")))))
+
 ;;;; Filing entries under a headline
 
 (ert-deftest org-reading-list-test-demote ()
