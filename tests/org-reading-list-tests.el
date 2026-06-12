@@ -303,9 +303,10 @@
   "Scanner output stand-in for matcher tests.")
 
 (ert-deftest org-reading-list-test-find-dup-isbn-cross-form ()
-  ;; Fetched record carries ISBN-13+10; stored entry has only the 10.
+  ;; The fetched set and the stored entry share only the ISBN-10;
+  ;; matching is set intersection, no 10↔13 conversion exists.
   (let ((dup (org-reading-list--find-duplicate
-              '(:title "Unrelated" :isbns ("9780252066313" "0252066316")
+              '(:title "Unrelated" :isbns ("0252066316")
                 :props (("AUTHOR" . nil)))
               org-reading-list-test--dup-entries)))
     (should (eq (car dup) 'exact))
