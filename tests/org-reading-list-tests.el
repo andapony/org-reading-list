@@ -396,5 +396,30 @@ BODY may reference `file', the temp file's path."
      (org-reading-list-insert "9780252066313")
      (should (= 2 (count-matches "TOREAD" (point-min) (point-max)))))))
 
+(ert-deftest org-reading-list-test-capture-duplicate-aborts-not-manual ()
+  ;; Declining a duplicate must abort the capture, NOT fall through to
+  ;; the manual-entry prompt (the condition-case fallback).
+  (org-reading-list-test--with-dup-file
+   (cl-letf (((symbol-function 'org-reading-list--entry-data)
+              (lambda (_id &optional _source)
+                org-reading-list-test--dup-data))
+             ((symbol-function 'y-or-n-p) (lambda (_prompt) nil))
+             ((symbol-function 'read-string)
+              (lambda (prompt &rest _)
+                (if (string-prefix-p "Lookup failed" prompt)
+                    (ert-fail "fell through to manual-entry fallback")
+                  ""))))
+     (should-error (org-reading-list-capture) :type 'user-error))))
+
+(ert-deftest org-reading-list-test-capture-duplicate-accepted-returns-entry ()
+  (org-reading-list-test--with-dup-file
+   (cl-letf (((symbol-function 'org-reading-list--entry-data)
+              (lambda (_id &optional _source)
+                org-reading-list-test--dup-data))
+             ((symbol-function 'y-or-n-p) (lambda (_prompt) t))
+             ((symbol-function 'read-string) (lambda (_p &rest _) "x")))
+     (should (string-prefix-p "* TOREAD One: A Tale"
+                              (org-reading-list-capture))))))
+
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here

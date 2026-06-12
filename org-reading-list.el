@@ -860,15 +860,28 @@ instead of inserting."
 The identifier is an ISBN, an Open Library edition id, or an
 openlibrary.org URL.  Intended for use in an Org capture template as
 \"%(org-reading-list-capture)\".  Falls back to a bare manual entry if
-the lookup fails."
+the lookup fails.  When the book appears to be in the list already,
+you are asked first; declining aborts the capture."
   (let ((id (string-trim
              (read-string "ISBN / OL edition id / OL URL: ")))
         (source (let ((s (string-trim
                           (read-string
                            "Found via (URL, blank to skip): "))))
                   (unless (string-empty-p s) s))))
-    (condition-case nil
-        (org-reading-list-entry id source)
+    (condition-case err
+        (let* ((data (org-reading-list--entry-data id source))
+               (dup (with-current-buffer
+                        (find-file-noselect org-reading-list-file)
+                      (save-restriction
+                        (widen)
+                        (org-reading-list--find-duplicate
+                         data (org-reading-list--scan-entries))))))
+          (when (and dup (not (org-reading-list--confirm-duplicate dup)))
+            (signal 'org-reading-list-duplicate
+                    (list (plist-get (cdr dup) :heading))))
+          (org-reading-list--entry-string data))
+      (org-reading-list-duplicate
+       (user-error "Already in list: %s" (cadr err)))
       (error
        (format "* TOREAD %s\n:PROPERTIES:\n:BTYPE: book\n:ADDED: %s%s\n:END:\n"
                (read-string "Lookup failed — title: ")
