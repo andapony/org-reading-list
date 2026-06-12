@@ -4,7 +4,7 @@
 
 ;; Author: Rob Duncan
 ;; URL: https://github.com/YOUR-USERNAME/org-reading-list
-;; Version: 0.2.1
+;; Version: 0.3.0
 ;; Package-Requires: ((emacs "27.1") (org "9.4"))
 ;; Keywords: bib, outlines
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -38,7 +38,9 @@
 ;;   `org-reading-list-insert'       File an entry in the reading list
 ;;                                   file, fetched from Open Library by
 ;;                                   ISBN, Open Library edition id, or
-;;                                   OL URL.
+;;                                   OL URL.  Books already in the list
+;;                                   (same ISBN/OLID, or same title and
+;;                                   author) prompt before adding.
 ;;   `org-reading-list-capture'      The same, shaped for org-capture
 ;;                                   templates via "%(...)".
 ;;   `org-reading-list-loc-enrich'   Fill missing LCCN/OCLC/LCC/DDC on
