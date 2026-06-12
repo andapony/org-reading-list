@@ -288,6 +288,67 @@ DDC-nil case.")
     (should (equal (plist-get data :tags)
                    '("historic_ships" "california")))))
 
+;;;; LoC fallback in entry-data / entry
+
+(defconst org-reading-list-test--loc-buried-ships-dom
+  `(zs:searchRetrieveResponse
+    nil
+    (zs:records nil
+                (zs:record nil
+                           (zs:recordData
+                            nil
+                            ,org-reading-list-test--loc-buried-ships))))
+  "SRU response DOM wrapping the Buried Ships record.")
+
+(ert-deftest org-reading-list-test-entry-loc-fallback ()
+  ;; Open Library misses; the entry is built from LoC instead.
+  (let ((org-reading-list-file "/nonexistent/orl-test.org")
+        (xml-calls 0))
+    (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+               (lambda (_url) nil))
+              ((symbol-function 'org-reading-list--fetch-xml)
+               (lambda (url)
+                 (cl-incf xml-calls)
+                 (should (string-match-p "bath\\.isbn=9798393569716" url))
+                 org-reading-list-test--loc-buried-ships-dom)))
+      (let ((entry (org-reading-list-entry "9798393569716" "a friend")))
+        (should (string-prefix-p
+                 (concat "* TOREAD Buried ships of San Francisco"
+                         " :historic_ships:california:san_francisco"
+                         ":urban_archaeology:\n")
+                 entry))
+        (should (string-match-p "^:CUSTOM_ID: filion2023$" entry))
+        (should (string-match-p "^:AUTHOR: Filion, Ron S$" entry))
+        (should (string-match-p "^:ISBN: 9798393569716$" entry))
+        (should (string-match-p "^:LCCN: 2023911799$" entry))
+        (should (string-match-p "^:FOUND: a friend$" entry))
+        ;; No LoC equivalents -> these props must be absent.
+        (should-not (string-match-p ":OLID:" entry))
+        (should-not (string-match-p ":DDC:" entry))
+        (should (= xml-calls 1))))))
+
+(ert-deftest org-reading-list-test-entry-both-miss ()
+  ;; Both sources miss: the error names both.
+  (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+             (lambda (_url) nil))
+            ((symbol-function 'org-reading-list--fetch-xml)
+             (lambda (_url) nil)))
+    (let ((err (should-error (org-reading-list-entry "9798393569716")
+                             :type 'user-error)))
+      (should (string-match-p "No Open Library or LoC record"
+                              (cadr err))))))
+
+(ert-deftest org-reading-list-test-entry-olid-miss-no-loc ()
+  ;; Non-ISBN input: LoC cannot be queried; old error, no SRU call.
+  (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+             (lambda (_url) nil))
+            ((symbol-function 'org-reading-list--fetch-xml)
+             (lambda (_url)
+               (ert-fail "LoC queried for a non-ISBN bibkey"))))
+    (let ((err (should-error (org-reading-list-entry "OL5851208M")
+                             :type 'user-error)))
+      (should (string-match-p "No Open Library record" (cadr err))))))
+
 ;;;; Filing entries under a headline
 
 (ert-deftest org-reading-list-test-demote ()

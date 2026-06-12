@@ -377,17 +377,21 @@ BIBKEY is the bibkey REC was fetched under; SOURCE is as in
     (list :title full-title :tags tags :isbns all-isbns :props props)))
 
 (defun org-reading-list--entry-data (id &optional source)
-  "Fetch Open Library data for ID and compute entry fields.
-ID and SOURCE are as in `org-reading-list-entry'.  Return a plist:
+  "Fetch bibliographic data for ID and compute entry fields.
+Queries Open Library; for an ISBN it lacks (common for 979-8
+self-published books), falls back to the LC Catalog over SRU.  ID
+and SOURCE are as in `org-reading-list-entry'.  Return a plist:
 :title is the full title, :tags the subject tags, :isbns every ISBN
 on the record (hyphens stripped; used for duplicate checks), and
 :props the property alist that `org-reading-list--entry-string'
 renders.  Signal a `user-error' if no record is found."
   (let* ((bibkey (org-reading-list--bibkey id))
          (rec (org-reading-list--openlibrary bibkey)))
-    (unless rec
-      (user-error "No Open Library record for %s" bibkey))
-    (org-reading-list--ol-entry-data rec bibkey source)))
+    (cond
+     (rec (org-reading-list--ol-entry-data rec bibkey source))
+     ((string-prefix-p "ISBN:" bibkey)
+      (org-reading-list--loc-entry-data bibkey source))
+     (t (user-error "No Open Library record for %s" bibkey)))))
 
 (defun org-reading-list--entry-string (data)
   "Render DATA from `org-reading-list--entry-data' as an Org entry."
@@ -805,6 +809,20 @@ each field falls through the records in order.  BIBKEY is the
             ("ADDED"     . ,(format-time-string "[%Y-%m-%d %a]"))
             ("FOUND"     . ,source))))
     (list :title title :tags tags :isbns isbns :props props)))
+
+(defun org-reading-list--loc-entry-data (bibkey source)
+  "Entry data from the LC Catalog for an ISBN BIBKEY.
+The fallback for ISBNs Open Library lacks: one SRU query by the
+ISBN, mapped via `org-reading-list--marc-entry-data'.  SOURCE is as
+in `org-reading-list-entry'.  Signal a `user-error' naming both
+sources when LoC has no record either."
+  (let* ((isbn (substring bibkey (length "ISBN:")))
+         (dom (org-reading-list--loc-marcxml
+               (format "bath.isbn=%s" isbn)))
+         (recs (and dom (org-reading-list--loc-records dom isbn))))
+    (unless recs
+      (user-error "No Open Library or LoC record for %s" bibkey))
+    (org-reading-list--marc-entry-data recs bibkey source)))
 
 ;;;; Library of Congress: applying fetched data
 
