@@ -164,6 +164,23 @@
   (should-not (org-reading-list--marc-strip-punct nil))
   (should-not (org-reading-list--marc-strip-punct " /")))
 
+(ert-deftest org-reading-list-test-marc-pub-field ()
+  ;; 264 wins over 260 when both are present.
+  (let ((rec '(record nil
+                      (datafield ((tag . "260"))
+                                 (subfield ((code . "b")) "Old Publisher,"))
+                      (datafield ((tag . "264"))
+                                 (subfield ((code . "b")) "New Publisher,")))))
+    (should (equal (org-reading-list--marc-pub-field rec "b")
+                   "New Publisher,")))
+  ;; Pre-RDA record: only 260.
+  (let ((rec '(record nil
+                      (datafield ((tag . "260"))
+                                 (subfield ((code . "c")) "1962.")))))
+    (should (equal (org-reading-list--marc-pub-field rec "c") "1962.")))
+  ;; Neither field present.
+  (should-not (org-reading-list--marc-pub-field '(record nil) "c")))
+
 (ert-deftest org-reading-list-test-loc-records-isbn-preference ()
   (let* ((ebook org-reading-list-test--marc-record)
          (print-rec
