@@ -479,6 +479,17 @@ year, subtitle, and publisher differences alone do not defeat it."
                          entries)))
                (and hit (cons 'similar hit)))))))
 
+(defun org-reading-list--duplicate-in-file (data)
+  "Scan `org-reading-list-file' for an entry that DATA duplicates.
+DATA is a plist from `org-reading-list--entry-data'.  Return the
+\(TYPE . ENTRY) cell from `org-reading-list--find-duplicate', or nil.
+The file's buffer is created if it is not already visited."
+  (with-current-buffer (find-file-noselect org-reading-list-file)
+    (save-restriction
+      (widen)
+      (org-reading-list--find-duplicate
+       data (org-reading-list--scan-entries)))))
+
 (define-error 'org-reading-list-duplicate "Book already in reading list")
 
 (defun org-reading-list--confirm-duplicate (dup)
@@ -838,17 +849,15 @@ author — you are asked first; declining jumps to the existing entry
 instead of inserting."
   (interactive "sISBN / OL edition id / OL URL: ")
   (let* ((data (org-reading-list--entry-data id))
+         (dup (org-reading-list--duplicate-in-file data))
          (buf (find-file-noselect org-reading-list-file))
-         dup pos)
-    (with-current-buffer buf
-      (save-restriction
-        (widen)
-        (setq dup (org-reading-list--find-duplicate
-                   data (org-reading-list--scan-entries)))
-        (when (or (null dup) (org-reading-list--confirm-duplicate dup))
-          (setq pos (org-reading-list--insert-under-headline
+         (pos (when (or (null dup) (org-reading-list--confirm-duplicate dup))
+                (with-current-buffer buf
+                  (save-restriction
+                    (widen)
+                    (org-reading-list--insert-under-headline
                      (org-reading-list--entry-string data)
-                     org-reading-list-headline)))))
+                     org-reading-list-headline))))))
     (pop-to-buffer buf)
     (goto-char (or pos (plist-get (cdr dup) :pos)))
     (unless pos
@@ -870,12 +879,7 @@ you are asked first; declining aborts the capture."
                   (unless (string-empty-p s) s))))
     (condition-case err
         (let* ((data (org-reading-list--entry-data id source))
-               (dup (with-current-buffer
-                        (find-file-noselect org-reading-list-file)
-                      (save-restriction
-                        (widen)
-                        (org-reading-list--find-duplicate
-                         data (org-reading-list--scan-entries))))))
+               (dup (org-reading-list--duplicate-in-file data)))
           (when (and dup (not (org-reading-list--confirm-duplicate dup)))
             (signal 'org-reading-list-duplicate
                     (list (plist-get (cdr dup) :heading))))
