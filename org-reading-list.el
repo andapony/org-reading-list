@@ -405,6 +405,33 @@ readable Internet Archive scan record the item id in :IA:.  Signal a
 `user-error' if no record is found."
   (org-reading-list--entry-string (org-reading-list--entry-data id source)))
 
+;;;; Duplicate detection
+
+(defun org-reading-list--scan-entries ()
+  "Collect duplicate-check data for every heading in the current buffer.
+Return, in buffer order, one plist per heading with keys :pos (start
+of the heading line), :heading (text sans keyword/tags), :isbns (the
+:ISBN: property split on commas/spaces, hyphens stripped), :olid,
+:title, and :author.  Headings without these properties yield nil
+fields and never match anything."
+  (let (entries)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward org-heading-regexp nil t)
+        (let ((isbn (org-entry-get nil "ISBN")))
+          (push (list :pos (match-beginning 0)
+                      :heading (org-get-heading t t t t)
+                      :isbns (and isbn
+                                  (mapcar
+                                   (lambda (s)
+                                     (replace-regexp-in-string "-" "" s))
+                                   (split-string isbn "[, ]" t)))
+                      :olid (org-entry-get nil "OLID")
+                      :title (org-entry-get nil "TITLE")
+                      :author (org-entry-get nil "AUTHOR"))
+                entries))))
+    (nreverse entries)))
+
 ;;;; Holdings
 
 ;;;###autoload

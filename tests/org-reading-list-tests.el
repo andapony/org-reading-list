@@ -256,5 +256,32 @@
                          ":CUSTOM_ID: smith2020\n"
                          ":END:\n"))))
 
+;;;; Duplicate detection
+
+(ert-deftest org-reading-list-test-scan-entries ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n"
+            "** TOREAD One: A Tale\n:PROPERTIES:\n"
+            ":ISBN: 978-0-252-06631-3, 0252066316\n"
+            ":TITLE: One: A Tale\n:AUTHOR: Smith, Ann\n:END:\n"
+            "** TOREAD Two\n:PROPERTIES:\n:OLID: OL1M\n:END:\n")
+    (let ((es (org-reading-list--scan-entries)))
+      ;; One element per heading, in order, parent "Books" included
+      ;; (its nil fields can never match).
+      (should (= (length es) 3))
+      (should (equal (plist-get (nth 0 es) :heading) "Books"))
+      (let ((one (nth 1 es)))
+        (should (equal (plist-get one :isbns)
+                       '("9780252066313" "0252066316")))
+        (should (equal (plist-get one :title) "One: A Tale"))
+        (should (equal (plist-get one :author) "Smith, Ann"))
+        ;; TOREAD is not a TODO keyword in a default Org buffer, so
+        ;; `org-get-heading' keeps it; in a configured file it would
+        ;; be stripped.  Either way the heading identifies the entry.
+        (should (equal (plist-get one :heading) "TOREAD One: A Tale")))
+      (should (equal (plist-get (nth 2 es) :olid) "OL1M"))
+      (should (null (plist-get (nth 2 es) :isbns))))))
+
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here
