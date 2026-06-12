@@ -13,6 +13,7 @@
 
 (require 'ert)
 (require 'org-reading-list)
+(require 'cl-lib)
 
 ;;;; Bibkey normalization
 
@@ -347,6 +348,52 @@
                 :props (("AUTHOR" . "Smith, Ann")))
               org-reading-list-test--dup-entries)))
     (should (eq (car dup) 'exact))))
+
+(defconst org-reading-list-test--dup-file-content
+  (concat "* Books\n** TOREAD One: A Tale\n:PROPERTIES:\n"
+          ":ISBN: 0252066316\n:TITLE: One: A Tale\n"
+          ":AUTHOR: Smith, Ann\n:END:\n")
+  "Reading-list file contents for duplicate command tests.")
+
+(defconst org-reading-list-test--dup-data
+  '(:title "One: A Tale" :tags nil
+    :isbns ("9780252066313" "0252066316")
+    :props (("TITLE" . "One: A Tale") ("AUTHOR" . "Smith, Ann")))
+  "Stubbed --entry-data result matching the file's entry exactly.")
+
+(defmacro org-reading-list-test--with-dup-file (&rest body)
+  "Run BODY with `org-reading-list-file' bound to a fresh temp file."
+  `(let* ((file (make-temp-file "orl-dup" nil ".org"
+                                org-reading-list-test--dup-file-content))
+          (org-reading-list-file file))
+     (unwind-protect
+         (progn ,@body)
+       (when-let* ((b (get-file-buffer file)))
+         (with-current-buffer b (set-buffer-modified-p nil))
+         (kill-buffer b))
+       (delete-file file))))
+
+(ert-deftest org-reading-list-test-insert-duplicate-declined-jumps ()
+  (org-reading-list-test--with-dup-file
+   (cl-letf (((symbol-function 'org-reading-list--entry-data)
+              (lambda (_id &optional _source)
+                org-reading-list-test--dup-data))
+             ((symbol-function 'y-or-n-p) (lambda (_prompt) nil)))
+     (org-reading-list-insert "9780252066313")
+     ;; Jumped: point on the existing heading in the list buffer.
+     (should (equal buffer-file-name file))
+     (should (looking-at-p "\\*\\* TOREAD One: A Tale"))
+     ;; Nothing inserted.
+     (should (= 1 (count-matches "TOREAD" (point-min) (point-max)))))))
+
+(ert-deftest org-reading-list-test-insert-duplicate-accepted-files ()
+  (org-reading-list-test--with-dup-file
+   (cl-letf (((symbol-function 'org-reading-list--entry-data)
+              (lambda (_id &optional _source)
+                org-reading-list-test--dup-data))
+             ((symbol-function 'y-or-n-p) (lambda (_prompt) t)))
+     (org-reading-list-insert "9780252066313")
+     (should (= 2 (count-matches "TOREAD" (point-min) (point-max)))))))
 
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here

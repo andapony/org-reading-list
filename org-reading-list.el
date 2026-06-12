@@ -418,8 +418,9 @@ properties yield nil fields and never match anything."
     (save-excursion
       (goto-char (point-min))
       (while (re-search-forward org-heading-regexp nil t)
-        (let ((isbn (org-entry-get nil "ISBN")))
-          (push (list :pos (match-beginning 0)
+        (let* ((pos (match-beginning 0))
+               (isbn (org-entry-get nil "ISBN")))
+          (push (list :pos pos
                       :heading (org-get-heading t t t t)
                       :isbns (and isbn
                                   (mapcar
@@ -477,6 +478,16 @@ year, subtitle, and publisher differences alone do not defeat it."
                                         (plist-get e :author)))))
                          entries)))
                (and hit (cons 'similar hit)))))))
+
+(define-error 'org-reading-list-duplicate "Book already in reading list")
+
+(defun org-reading-list--confirm-duplicate (dup)
+  "Ask whether to insert despite DUP, a (TYPE . ENTRY) pair.
+Return non-nil to insert anyway."
+  (y-or-n-p (format (if (eq (car dup) 'exact)
+                        "Already in list as %S (ISBN match) — add anyway? "
+                      "Possibly already in list as %S (title/author match) — add anyway? ")
+                    (plist-get (cdr dup) :heading))))
 
 ;;;; Holdings
 
@@ -821,18 +832,27 @@ child, as `file+headline' would."
 ID is an ISBN, an Open Library edition id, or an openlibrary.org URL.
 The entry is appended as the last child of `org-reading-list-headline'
 \(created if absent), mirroring the capture template's target, and the
-file is displayed with point on the new entry."
+file is displayed with point on the new entry.  When the book appears
+to be in the list already — same ISBN or OLID, or same title and
+author — you are asked first; declining jumps to the existing entry
+instead of inserting."
   (interactive "sISBN / OL edition id / OL URL: ")
-  (let ((entry (org-reading-list-entry id))
-        (buf (find-file-noselect org-reading-list-file))
-        pos)
+  (let* ((data (org-reading-list--entry-data id))
+         (buf (find-file-noselect org-reading-list-file))
+         dup pos)
     (with-current-buffer buf
       (save-restriction
         (widen)
-        (setq pos (org-reading-list--insert-under-headline
-                   entry org-reading-list-headline))))
+        (setq dup (org-reading-list--find-duplicate
+                   data (org-reading-list--scan-entries)))
+        (when (or (null dup) (org-reading-list--confirm-duplicate dup))
+          (setq pos (org-reading-list--insert-under-headline
+                     (org-reading-list--entry-string data)
+                     org-reading-list-headline)))))
     (pop-to-buffer buf)
-    (goto-char pos)))
+    (goto-char (or pos (plist-get (cdr dup) :pos)))
+    (unless pos
+      (message "Already in list: %s" (plist-get (cdr dup) :heading)))))
 
 ;;;###autoload
 (defun org-reading-list-capture ()
