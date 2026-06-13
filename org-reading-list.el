@@ -165,6 +165,19 @@ Return nil on any failure."
 
 ;;;; Open Library
 
+(defun org-reading-list--lccn-normalize (s)
+  "Normalize LCCN S to its canonical hyphenless form; nil for nil.
+Strips spaces; a catalog-card form like \"61-10539\" has its hyphen
+dropped and the serial zero-padded to six digits (\"61010539\"), the
+form Open Library and LoC SRU indexes match on.  Values without a
+hyphen are returned with spaces stripped, otherwise unchanged."
+  (when s
+    (let ((v (replace-regexp-in-string " " "" s)))
+      (if (string-match "\\`\\([A-Za-z]*[0-9]*\\)-\\([0-9]+\\)\\'" v)
+          (concat (match-string 1 v)
+                  (format "%06d" (string-to-number (match-string 2 v))))
+        v))))
+
 (defun org-reading-list--bibkey (input)
   "Normalize INPUT into an Open Library bibkeys value.
 INPUT may be an ISBN (10 or 13 digits, hyphens allowed), an Open
