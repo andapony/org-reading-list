@@ -398,8 +398,9 @@ BIBKEY is the bibkey REC was fetched under; SOURCE is as in
 
 (defun org-reading-list--entry-data (id &optional source)
   "Fetch bibliographic data for ID and compute entry fields.
-Queries Open Library; for an ISBN it lacks (common for 979-8
-self-published books), falls back to the LC Catalog over SRU.  ID
+Queries Open Library; for an ISBN or LCCN it lacks (common for
+979-8 self-published and pre-ISBN books), falls back to the LC
+Catalog over SRU.  ID
 and SOURCE are as in `org-reading-list-entry'.  Return a plist:
 :title is the full title, :tags the subject tags, :isbns every ISBN
 on the record (hyphens stripped; used for duplicate checks), and
@@ -409,7 +410,7 @@ renders.  Signal a `user-error' if no record is found."
          (rec (org-reading-list--openlibrary bibkey)))
     (cond
      (rec (org-reading-list--ol-entry-data rec bibkey source))
-     ((string-prefix-p "ISBN:" bibkey)
+     ((string-match-p "\\`\\(ISBN\\|LCCN\\):" bibkey)
       (org-reading-list--loc-entry-data bibkey source))
      (t (user-error "No Open Library record for %s" bibkey)))))
 
@@ -840,14 +841,19 @@ with no LoC equivalent (:OLID:, :IA:, :URL:) are omitted."
     (list :title title :tags tags :isbns isbns :props props)))
 
 (defun org-reading-list--loc-entry-data (bibkey source)
-  "Entry data from the LC Catalog for an ISBN BIBKEY.
-The fallback for ISBNs Open Library lacks: one SRU query by the
-ISBN, mapped via `org-reading-list--marc-entry-data'.  SOURCE is as
-in `org-reading-list-entry'.  Signal a `user-error' naming both
-sources when LoC has no record either."
-  (let* ((isbn (substring bibkey (length "ISBN:")))
+  "Entry data from the LC Catalog for an ISBN or LCCN BIBKEY.
+The fallback for identifiers Open Library lacks: one SRU query by
+the ISBN or LCCN, mapped via `org-reading-list--marc-entry-data'.
+SOURCE is as in `org-reading-list-entry'.  Signal a `user-error'
+naming both sources when LoC has no record either."
+  (let* ((isbn (and (string-prefix-p "ISBN:" bibkey)
+                    (substring bibkey (length "ISBN:"))))
+         (lccn (and (string-prefix-p "LCCN:" bibkey)
+                    (substring bibkey (length "LCCN:"))))
          (dom (org-reading-list--loc-marcxml
-               (format "bath.isbn=%s" isbn)))
+               (if isbn
+                   (format "bath.isbn=%s" isbn)
+                 (format "bath.lccn=%s" lccn))))
          (recs (and dom (org-reading-list--loc-records dom isbn))))
     (unless recs
       (user-error "No Open Library or LoC record for %s" bibkey))

@@ -467,6 +467,47 @@ DDC-nil case.")
         (should (string-prefix-p "* TOREAD One\n" entry))
         (should (string-match-p "^:AUTHOR: Smith, Ann$" entry))))))
 
+(defconst org-reading-list-test--loc-kemble-dom
+  `(zs:searchRetrieveResponse
+    nil
+    (zs:records nil
+                (zs:record nil
+                           (zs:recordData
+                            nil
+                            ,org-reading-list-test--loc-kemble))))
+  "SRU response DOM wrapping the Kemble record.")
+
+(ert-deftest org-reading-list-test-entry-lccn-fallback ()
+  ;; Open Library misses the LCCN; the entry is built from LoC.
+  (let ((org-reading-list-file "/nonexistent/orl-test.org"))
+    (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+               (lambda (_url) nil))
+              ((symbol-function 'org-reading-list--fetch-xml)
+               (lambda (url)
+                 (should (string-match-p "bath\\.lccn=61010539" url))
+                 org-reading-list-test--loc-kemble-dom)))
+      (let ((entry (org-reading-list-entry "LCCN:61-10539")))
+        (should (string-prefix-p
+                 "* TOREAD A history of California newspapers, 1846-1858"
+                 entry))
+        (should (string-match-p "^:AUTHOR: Kemble, Edward C$" entry))
+        (should (string-match-p "^:LCCN: 61010539$" entry))
+        (should (string-match-p "^:DATE: 1962$" entry))
+        (should (string-match-p "^:PUBLISHER: Talisman Press$" entry))
+        ;; Pre-ISBN book: no ISBN property at all.
+        (should-not (string-match-p ":ISBN:" entry))))))
+
+(ert-deftest org-reading-list-test-entry-oclc-miss-no-loc ()
+  ;; OCLC bibkeys have no SRU index configured: OL-only error, no call.
+  (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+             (lambda (_url) nil))
+            ((symbol-function 'org-reading-list--fetch-xml)
+             (lambda (_url)
+               (ert-fail "LoC queried for an OCLC bibkey"))))
+    (let ((err (should-error (org-reading-list-entry "OCLC:1234567")
+                             :type 'user-error)))
+      (should (string-match-p "No Open Library record" (cadr err))))))
+
 ;;;; Filing entries under a headline
 
 (ert-deftest org-reading-list-test-demote ()
