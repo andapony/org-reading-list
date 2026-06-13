@@ -401,8 +401,8 @@ BIBKEY is the bibkey REC was fetched under; SOURCE is as in
   "Fetch bibliographic data for ID and compute entry fields.
 Queries Open Library; for an ISBN or LCCN it lacks (common for
 979-8 self-published and pre-ISBN books), falls back to the LC
-Catalog over SRU.  ID
-and SOURCE are as in `org-reading-list-entry'.  Return a plist:
+Catalog over SRU.  ID and SOURCE are as in
+`org-reading-list-entry'.  Return a plist:
 :title is the full title, :tags the subject tags, :isbns every ISBN
 on the record (hyphens stripped; used for duplicate checks), and
 :props the property alist that `org-reading-list--entry-string'
