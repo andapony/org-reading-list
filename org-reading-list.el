@@ -621,14 +621,17 @@ one, it is deleted and the item page is suggested instead."
 
 (defun org-reading-list--loc-entry-query ()
   "Build the SRU query for the Org entry at point.
-Return (QUERY . ISBN); ISBN is nil when querying by LCCN.  Signal a
+Return (QUERY . ISBN); ISBN is nil when querying by LCCN.  The LCCN is
+normalized, so catalog-card forms in :LCCN: work.  Signal a
 `user-error' when the entry has neither identifier."
   (let* ((isbn (let ((v (org-entry-get nil "ISBN")))
                  (and v (car (split-string v "[, ]" t)))))
          (lccn (org-entry-get nil "LCCN")))
     (cond
      (isbn (cons (format "bath.isbn=%s" isbn) isbn))
-     (lccn (cons (format "bath.lccn=%s" lccn) nil))
+     (lccn (cons (format "bath.lccn=%s"
+                         (org-reading-list--lccn-normalize lccn))
+                 nil))
      (t (user-error
          "Entry at point has neither :ISBN: nor :LCCN: to query by")))))
 
