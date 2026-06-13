@@ -410,7 +410,8 @@ renders.  Signal a `user-error' if no record is found."
          (rec (org-reading-list--openlibrary bibkey)))
     (cond
      (rec (org-reading-list--ol-entry-data rec bibkey source))
-     ((string-match-p "\\`\\(ISBN\\|LCCN\\):" bibkey)
+     ((or (string-prefix-p "ISBN:" bibkey)
+          (string-prefix-p "LCCN:" bibkey))
       (org-reading-list--loc-entry-data bibkey source))
      (t (user-error "No Open Library record for %s" bibkey)))))
 
