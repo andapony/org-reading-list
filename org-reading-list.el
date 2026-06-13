@@ -4,7 +4,7 @@
 
 ;; Author: Rob Duncan
 ;; URL: https://github.com/YOUR-USERNAME/org-reading-list
-;; Version: 0.6.0
+;; Version: 0.7.0
 ;; Package-Requires: ((emacs "27.1") (org "9.4"))
 ;; Keywords: bib, outlines
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -393,6 +393,10 @@ BIBKEY is the bibkey REC was fetched under; SOURCE is as in
                                   'dewey_decimal_class)))
             ("URL"       . ,(and (not isbn)
                                  (org-reading-list--dig rec 'url)))
+            ;; Filled from a MARC 520 by `org-reading-list--loc-augment-data'
+            ;; when the title/author bridge fires; Open Library's own data
+            ;; view carries no summary.
+            ("ABSTRACT"  . nil)
             ("ADDED"     . ,(format-time-string "[%Y-%m-%d %a]"))
             ("FOUND"     . ,source))))
     (list :title full-title :tags tags :isbns all-isbns :props props)))
@@ -788,8 +792,8 @@ sources."
   "Identifier properties from MARC RECS as an alist, values possibly nil.
 Covers LCCN, OCLC, LCC, and DDC (MARC 010, 035, 050, 082),
 consulting RECS in order for each field; the LCCN's embedded spaces
-are stripped.  Shared by `org-reading-list--marc-entry-data' and
-`org-reading-list--loc-apply-fields'."
+are stripped.  The identifier subset of
+`org-reading-list--loc-marc-fields'."
   `(("LCCN" . ,(org-reading-list--loc-first
                 recs
                 (lambda (r)
@@ -805,6 +809,23 @@ are stripped.  Shared by `org-reading-list--marc-entry-data' and
                 recs
                 (lambda (r)
                   (org-reading-list--marc-field r "082"))))))
+
+(defun org-reading-list--marc-abstract (recs)
+  "Return the first MARC 520 summary across RECS, or nil.
+Joins the summary ($a) with its expansion ($b); sentence punctuation
+is kept, unlike the transcribed bibliographic fields."
+  (org-reading-list--loc-first
+   recs
+   (lambda (r) (org-reading-list--marc-field r "520" "a" "b"))))
+
+(defun org-reading-list--loc-marc-fields (recs)
+  "MARC-derived properties from RECS as an alist, values possibly nil.
+The identifier fields of `org-reading-list--loc-id-fields' plus the
+520 summary as ABSTRACT.  Shared by `org-reading-list--marc-entry-data',
+`org-reading-list--loc-augment-data', and
+`org-reading-list--loc-apply-fields', so all three fill the same set."
+  (append (org-reading-list--loc-id-fields recs)
+          (list (cons "ABSTRACT" (org-reading-list--marc-abstract recs)))))
 
 (defun org-reading-list--marc-entry-data (recs bibkey source)
   "Compute entry fields from LoC MARC records RECS.
@@ -862,7 +883,7 @@ with no LoC equivalent (:OLID:, :IA:, :URL:) are omitted."
             ("DATE"      . ,date)
             ("PAGES"     . ,pages)
             ("ISBN"      . ,(car isbns))
-            ,@(org-reading-list--loc-id-fields recs)
+            ,@(org-reading-list--loc-marc-fields recs)
             ("ADDED"     . ,(format-time-string "[%Y-%m-%d %a]"))
             ("FOUND"     . ,source))))
     (list :title title :tags tags :isbns isbns :props props)))
@@ -930,7 +951,8 @@ carries an ISBN or LCCN, or lacks a title or author to search by, it
 is returned unchanged.  Otherwise one SRU query by leading title and
 author surname is run; the first record passing
 `org-reading-list--loc-match-p' fills DATA's empty
-LCCN/OCLC/LCC/DDC slots.  DATA's own descriptive fields are kept."
+LCCN/OCLC/LCC/DDC and ABSTRACT slots.  DATA's own descriptive fields
+are kept."
   (let* ((props (plist-get data :props))
          (author (cdr (assoc "AUTHOR" props)))
          (date (cdr (assoc "DATE" props)))
@@ -946,7 +968,7 @@ LCCN/OCLC/LCC/DDC slots.  DATA's own descriptive fields are kept."
                             (org-reading-list--loc-match-p r author date))
                           (dom-by-tag dom 'record)))))
         (when match
-          (dolist (kv (org-reading-list--loc-id-fields (list match)))
+          (dolist (kv (org-reading-list--loc-marc-fields (list match)))
             (when (cdr kv)
               (let ((cell (assoc (car kv) props)))
                 (if cell
@@ -958,11 +980,12 @@ LCCN/OCLC/LCC/DDC slots.  DATA's own descriptive fields are kept."
 ;;;; Library of Congress: applying fetched data
 
 (defun org-reading-list--loc-apply-fields (recs &optional force)
-  "Set identifier properties of the entry at point from MARC RECS.
-Covers :LCCN:, :OCLC:, :LCC:, and :DDC: (MARC 010, 035, 050, 082),
-consulting RECS in order for each field.  Existing values are kept
-unless FORCE is non-nil.  Return the list of property names changed."
-  (let ((fields (org-reading-list--loc-id-fields recs))
+  "Set properties of the entry at point from MARC RECS.
+Covers :LCCN:, :OCLC:, :LCC:, and :DDC: (MARC 010, 035, 050, 082)
+and the :ABSTRACT: summary (MARC 520), consulting RECS in order for
+each field.  Existing values are kept unless FORCE is non-nil.
+Return the list of property names changed."
+  (let ((fields (org-reading-list--loc-marc-fields recs))
         (changed '()))
     (dolist (kv fields)
       (let ((name (car kv))

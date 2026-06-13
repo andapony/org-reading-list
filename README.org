@@ -21,8 +21,9 @@ documented in [[file:doc/reading-list-schema.org][doc/reading-list-schema.org]].
   Pre-ISBN books can be captured by catalog card number
   (=LCCN:61-10539= — hyphenated form fine, it is normalized).
 - Enrich entries from the Library of Congress catalog (SRU/MARCXML):
-  backfill LCCN, OCLC number, LC and Dewey classification, and harvest
-  650/651 subject headings as Org tags.
+  backfill LCCN, OCLC number, LC and Dewey classification, the MARC
+  520 summary as =:ABSTRACT:=, and harvest 650/651 subject headings as
+  Org tags.
 - Track where each book can be obtained (=:HOLDINGS:= — own
   collection, specific libraries) separately from shelf numbers
   (=:CALLNO:=).
@@ -141,12 +142,14 @@ reading-list file:
   record but holds no ISBN or LCCN — common for OLID/pre-ISBN
   lookups — the identifiers LoC has (LCCN/OCLC/LCC/DDC) are filled in
   from a title/author search, kept only when the author and year
-  agree with Open Library's.
+  agree with Open Library's. Any LoC record consulted also seeds
+  :ABSTRACT: from its MARC 520 summary, when it has one.
 - =M-x org-reading-list-loc-enrich= on an entry: fills missing
-  LCCN/OCLC/LCC/DDC from the Library of Congress record (queried by
-  ISBN, by LCCN for pre-ISBN books, or by :TITLE:+:AUTHOR: when the
-  entry has neither identifier — guarded by author and year). =C-u=
-  overwrites existing values — useful for refreshing entries captured
+  LCCN/OCLC/LCC/DDC and the :ABSTRACT: summary from the Library of
+  Congress record (queried by ISBN, by LCCN for pre-ISBN books, or by
+  :TITLE:+:AUTHOR: when the entry has neither identifier — guarded by
+  author and year). =C-u= overwrites existing values — useful for
+  refreshing entries captured
   from pre-publication CIP records once LoC completes them.
 - =M-x org-reading-list-loc-tags=: adds the LoC subject headings as
   normalized tags (=C-u= replaces instead of merging). Prune to your
