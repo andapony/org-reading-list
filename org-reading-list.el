@@ -777,11 +777,12 @@ The MARC sibling of `org-reading-list--ol-entry-data': return the
 same plist shape, described in `org-reading-list--entry-data'.  RECS
 is best match first, as `org-reading-list--loc-records' returns;
 each field falls through the records in order.  BIBKEY is the
-\"ISBN:...\" bibkey that was queried; SOURCE is as in
+\"ISBN:...\" or \"LCCN:...\" bibkey that was queried; SOURCE is as in
 `org-reading-list-entry'.  Identifiers with no LoC equivalent
 \(:OLID:, :IA:, :URL:) are omitted."
-  (let* ((queried (replace-regexp-in-string
-                   "-" "" (substring bibkey (length "ISBN:"))))
+  (let* ((queried (and (string-prefix-p "ISBN:" bibkey)
+                       (replace-regexp-in-string
+                        "-" "" (substring bibkey (length "ISBN:")))))
          (title (org-reading-list--loc-first
                  recs
                  (lambda (r)
@@ -805,10 +806,10 @@ each field falls through the records in order.  BIBKEY is the
                      (when (and a (string-match "[0-9]+" a))
                        (match-string 0 a))))))
          (isbns (delete-dups
-                 (cons queried
-                       (mapcan (lambda (r)
-                                 (org-reading-list--marc-isbns r "a"))
-                               recs))))
+                 (append (and queried (list queried))
+                         (mapcan (lambda (r)
+                                   (org-reading-list--marc-isbns r "a"))
+                                 recs))))
          (tags (seq-take (org-reading-list--marc-subject-tags recs)
                          org-reading-list-max-tags))
          (props
@@ -828,7 +829,7 @@ each field falls through the records in order.  BIBKEY is the
                                 (org-reading-list--marc-pub-field r "b")))))
             ("DATE"      . ,date)
             ("PAGES"     . ,pages)
-            ("ISBN"      . ,queried)
+            ("ISBN"      . ,(car isbns))
             ,@(org-reading-list--loc-id-fields recs)
             ("ADDED"     . ,(format-time-string "[%Y-%m-%d %a]"))
             ("FOUND"     . ,source))))

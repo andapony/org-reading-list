@@ -321,6 +321,47 @@ DDC-nil case.")
     (should (equal (plist-get data :tags)
                    '("historic_ships" "california")))))
 
+(defconst org-reading-list-test--loc-kemble
+  '(record nil
+           (datafield ((tag . "010") (ind1 . " ") (ind2 . " "))
+                      (subfield ((code . "a")) "   61010539 "))
+           (datafield ((tag . "100") (ind1 . "1") (ind2 . " "))
+                      (subfield ((code . "a")) "Kemble, Edward C."))
+           (datafield ((tag . "245") (ind1 . "1") (ind2 . "0"))
+                      (subfield ((code . "a"))
+                                "A history of California newspapers, 1846-1858."))
+           (datafield ((tag . "260") (ind1 . " ") (ind2 . " "))
+                      (subfield ((code . "a")) "Los Gatos, Calif. :")
+                      (subfield ((code . "b")) "Talisman Press,")
+                      (subfield ((code . "c")) "1962."))
+           (datafield ((tag . "650") (ind1 . " ") (ind2 . "0"))
+                      (subfield ((code . "a")) "American newspapers")
+                      (subfield ((code . "z")) "California")))
+  "Pre-ISBN LoC MARC record (LCCN 61010539, no 020 field), trimmed.")
+
+(ert-deftest org-reading-list-test-marc-entry-data-lccn-bibkey ()
+  ;; LCCN bibkey: no queried ISBN; identifiers come from the record.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (data (org-reading-list--marc-entry-data
+                (list org-reading-list-test--loc-buried-ships)
+                "LCCN:2023911799" nil))
+         (props (plist-get data :props)))
+    (should (equal (plist-get data :isbns) '("9798393569716")))
+    (should (equal (cdr (assoc "ISBN" props)) "9798393569716"))))
+
+(ert-deftest org-reading-list-test-marc-entry-data-no-isbn ()
+  ;; Pre-ISBN book: no 020 anywhere -> no :ISBN:, LCCN identifies it.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (data (org-reading-list--marc-entry-data
+                (list org-reading-list-test--loc-kemble)
+                "LCCN:61010539" nil))
+         (props (plist-get data :props)))
+    (should (null (plist-get data :isbns)))
+    (should (null (cdr (assoc "ISBN" props))))
+    (should (equal (cdr (assoc "LCCN" props)) "61010539"))
+    (should (equal (cdr (assoc "CUSTOM_ID" props)) "kemble1962"))
+    (should (equal (cdr (assoc "DATE" props)) "1962"))))
+
 ;;;; LoC fallback in entry-data / entry
 
 (defconst org-reading-list-test--loc-buried-ships-dom
