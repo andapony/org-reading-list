@@ -349,6 +349,22 @@ DDC-nil case.")
                              :type 'user-error)))
       (should (string-match-p "No Open Library record" (cadr err))))))
 
+(ert-deftest org-reading-list-test-entry-ol-hit-skips-loc ()
+  ;; An Open Library hit must not trigger the LoC fallback.
+  (let ((org-reading-list-file "/nonexistent/orl-test.org"))
+    (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+               (lambda (_url)
+                 '(("ISBN:9780252066313"
+                    . ((title . "One")
+                       (authors . (((name . "Ann Smith"))))
+                       (publish_date . "1997"))))))
+              ((symbol-function 'org-reading-list--fetch-xml)
+               (lambda (_url)
+                 (ert-fail "LoC queried despite an Open Library hit"))))
+      (let ((entry (org-reading-list-entry "9780252066313")))
+        (should (string-prefix-p "* TOREAD One\n" entry))
+        (should (string-match-p "^:AUTHOR: Smith, Ann$" entry))))))
+
 ;;;; Filing entries under a headline
 
 (ert-deftest org-reading-list-test-demote ()
