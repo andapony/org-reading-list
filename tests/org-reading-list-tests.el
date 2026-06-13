@@ -68,6 +68,15 @@
                  "61010539"))
   (should-not (org-reading-list--lccn-normalize nil)))
 
+(ert-deftest org-reading-list-test-bibkey-lccn-normalized ()
+  (should (equal (org-reading-list--bibkey "LCCN:61-10539")
+                 "LCCN:61010539"))
+  (should (equal (org-reading-list--bibkey "LCCN:61010539")
+                 "LCCN:61010539"))
+  ;; Other prefixes still pass through verbatim.
+  (should (equal (org-reading-list--bibkey "OCLC:123-456")
+                 "OCLC:123-456")))
+
 ;;;; Name inversion
 
 (ert-deftest org-reading-list-test-invert-simple ()

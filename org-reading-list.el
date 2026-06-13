@@ -184,11 +184,16 @@ INPUT may be an ISBN (10 or 13 digits, hyphens allowed), an Open
 Library edition id (\"OL5851208M\"), an openlibrary.org URL containing
 one (URL-encoded forms are decoded), or an explicit \"PREFIX:value\"
 bibkey using ISBN:, OLID:, LCCN:, or OCLC:.  Work ids (\"OL…W\") are
-rejected with an explanation, since bibliographic data is per edition."
+rejected with an explanation, since bibliographic data is per edition.
+LCCN values are normalized to canonical form, so catalog-card
+numbers like \"LCCN:61-10539\" work as-is."
   (let* ((input (string-trim input))
          (decoded (url-unhex-string input)))
     (cond
-     ((string-match-p "\\`\\(ISBN\\|OLID\\|LCCN\\|OCLC\\):" input)
+     ((string-match "\\`LCCN:\\(.*\\)\\'" input)
+      (concat "LCCN:" (org-reading-list--lccn-normalize
+                       (match-string 1 input))))
+     ((string-match-p "\\`\\(ISBN\\|OLID\\|OCLC\\):" input)
       input)
      ((string-match "\\bOL[0-9]+M\\b" decoded)
       (concat "OLID:" (match-string 0 decoded)))
