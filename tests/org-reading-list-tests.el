@@ -508,6 +508,29 @@ DDC-nil case.")
                              :type 'user-error)))
       (should (string-match-p "No Open Library record" (cadr err))))))
 
+(ert-deftest org-reading-list-test-entry-lowercase-prefix-no-loc ()
+  ;; A lowercase explicit bibkey passes through --bibkey unchanged and
+  ;; must not reach the LoC fallback's case-sensitive prefix parsing.
+  (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+             (lambda (_url) nil))
+            ((symbol-function 'org-reading-list--fetch-xml)
+             (lambda (_url)
+               (ert-fail "LoC queried for a lowercase prefix bibkey"))))
+    (should-error (org-reading-list-entry "isbn:9798393569716")
+                  :type 'user-error)))
+
+(ert-deftest org-reading-list-test-entry-lccn-both-miss ()
+  ;; LCCN both-miss names both sources, with the full bibkey.
+  (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+             (lambda (_url) nil))
+            ((symbol-function 'org-reading-list--fetch-xml)
+             (lambda (_url) nil)))
+    (let ((err (should-error (org-reading-list-entry "LCCN:61-10539")
+                             :type 'user-error)))
+      (should (string-match-p
+               "No Open Library or LoC record for LCCN:61010539"
+               (cadr err))))))
+
 ;;;; Filing entries under a headline
 
 (ert-deftest org-reading-list-test-demote ()
