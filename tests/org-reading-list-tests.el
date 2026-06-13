@@ -552,6 +552,8 @@ DDC-nil case.")
                       (subfield ((code . "a")) "San Francisco,")
                       (subfield ((code . "b")) "A.L. Bancroft & company,")
                       (subfield ((code . "c")) "1873."))
+           (datafield ((tag . "520") (ind1 . " ") (ind2 . " "))
+                      (subfield ((code . "a")) "Sketches of early San Francisco."))
            (datafield ((tag . "651") (ind1 . " ") (ind2 . "0"))
                       (subfield ((code . "a")) "San Francisco (Calif.)")
                       (subfield ((code . "x")) "History")))
@@ -594,6 +596,31 @@ DDC-nil case.")
   (should-not (org-reading-list--loc-title-author-cql "Title only" nil))
   (should-not (org-reading-list--loc-title-author-cql nil "Author, A.")))
 
+(ert-deftest org-reading-list-test-marc-abstract ()
+  ;; The 520 summary, when present; nil for records without one.
+  (should (equal (org-reading-list--marc-abstract
+                  (list org-reading-list-test--loc-men-memories))
+                 "Sketches of early San Francisco."))
+  (should-not (org-reading-list--marc-abstract
+               (list org-reading-list-test--loc-kemble))))
+
+(ert-deftest org-reading-list-test-marc-entry-data-abstract ()
+  ;; The LoC-fallback entry data carries the 520 as :ABSTRACT:.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (data (org-reading-list--marc-entry-data
+                (list org-reading-list-test--loc-men-memories)
+                "LCCN:02026842" nil))
+         (props (plist-get data :props)))
+    (should (equal (cdr (assoc "ABSTRACT" props))
+                   "Sketches of early San Francisco.")))
+  ;; A record without a 520 omits the property.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (data (org-reading-list--marc-entry-data
+                (list org-reading-list-test--loc-kemble)
+                "LCCN:61010539" nil))
+         (props (plist-get data :props)))
+    (should (null (cdr (assoc "ABSTRACT" props))))))
+
 (ert-deftest org-reading-list-test-loc-match-p ()
   (let ((rec org-reading-list-test--loc-men-memories))
     ;; Author surname and year agree.
@@ -624,9 +651,11 @@ DDC-nil case.")
         ;; OL fields survive...
         (should (string-match-p "^:AUTHOR: Barry, T. A.$" entry))
         (should (string-match-p "^:IA: menandmemoriess00pattgoog$" entry))
-        ;; ...and LoC fills the identifiers OL lacked.
+        ;; ...and LoC fills the identifiers and summary OL lacked.
         (should (string-match-p "^:LCCN: 02026842$" entry))
         (should (string-match-p "^:LCC: F869.S3 B18$" entry))
+        (should (string-match-p
+                 "^:ABSTRACT: Sketches of early San Francisco.$" entry))
         (should (= xml-calls 1))))))
 
 (ert-deftest org-reading-list-test-entry-olid-augment-guard ()
@@ -675,7 +704,9 @@ DDC-nil case.")
                  org-reading-list-test--loc-men-memories-dom)))
       (org-reading-list-loc-enrich)
       (should (equal (org-entry-get nil "LCCN") "02026842"))
-      (should (equal (org-entry-get nil "LCC") "F869.S3 B18")))))
+      (should (equal (org-entry-get nil "LCC") "F869.S3 B18"))
+      (should (equal (org-entry-get nil "ABSTRACT")
+                     "Sketches of early San Francisco.")))))
 
 (ert-deftest org-reading-list-test-loc-enrich-title-author-guard ()
   ;; A title/author search whose records fail the author guard errors,

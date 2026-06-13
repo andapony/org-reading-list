@@ -96,6 +96,7 @@ treating them as the book's actual identifiers.)
 | ADDED      | yes | inactive Org timestamp                   | =[2026-06-10 Wed]=               |
 | FOUND      | no  | URL, Org link, or free text provenance   | =https://…= or =rec. from C. Karr= |
 | URL        | no  | canonical link for the work itself       | publisher or Open Library page   |
+| ABSTRACT   | no  | summary/annotation, free text (MARC 520) | =Sketches of early San Francisco.= |
 | COVERS     | no  | period the book treats (v1 legacy)       | =1849-1856=                      |
 
 Notes on the subtle ones:
@@ -180,6 +181,7 @@ Open Library paths refer to the books API with =jscmd=data=
 | HOLDINGS  | — (non-standard)       | — (local availability data)   | — (look up per library catalog)         |
 | tags      | =keywords=             | 650/651 =$a $x $y $z=         | =subjects[].name=                       |
 | URL       | =url=                  | 856 =$u=                      | =url= (the OL page itself)              |
+| ABSTRACT  | =abstract=             | 520 =$a $b=                   | — (data view lacks it)                  |
 
 * Translation notes
 
@@ -233,6 +235,12 @@ Open Library paths refer to the books API with =jscmd=data=
   and year agree with OL's; =M-x org-reading-list-loc-enrich= does the
   same on demand for an entry that has a :TITLE: and :AUTHOR: but
   neither identifier.
+- *Summaries*: any LoC record consulted (the fallback, the title/author
+  bridge, or =loc-enrich=) contributes its MARC 520 summary to
+  :ABSTRACT: when present, kept verbatim. Open Library's =data= view
+  exposes no description, so the summary is LoC's alone; 520s are
+  uncommon outside fiction, children's, and recently cataloged or
+  digitized titles.
 - *Internet Archive scans*: when an edition has a readable IA scan,
   capture extracts the item identifier from =ebooks[0].preview_url=
   into :IA:. =M-x org-reading-list-download-pdf= then fetches the
