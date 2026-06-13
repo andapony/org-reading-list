@@ -135,9 +135,9 @@ reading-list file:
   or same title and author (so reissues with a new publisher or year
   are caught) — and ask before adding; declining jumps to the
   existing entry (insert) or aborts (capture).
-  When Open Library has no record for an ISBN or LCCN, the entry is built
-  from the Library of Congress catalog instead (one SRU query; the
-  LoC rate-limit note below applies).
+  When Open Library has no record for an ISBN or LCCN, the entry is
+  built from the Library of Congress catalog instead (one SRU query;
+  the LoC rate-limit note below applies).
 - =M-x org-reading-list-loc-enrich= on an entry: fills missing
   LCCN/OCLC/LCC/DDC from the Library of Congress record (queried by
   ISBN, or LCCN for pre-ISBN books). =C-u= overwrites existing values

@@ -41,9 +41,9 @@
 ;;                                   OL URL, falling back to the LC
 ;;                                   Catalog for ISBNs and LCCNs Open
 ;;                                   Library lacks.  Books already in
-;;                                   the list
-;;                                   (same ISBN/OLID, or same title and
-;;                                   author) prompt before adding.
+;;                                   the list (same ISBN/OLID, or same
+;;                                   title and author) prompt before
+;;                                   adding.
 ;;   `org-reading-list-capture'      The same, shaped for org-capture
 ;;                                   templates via "%(...)".
 ;;   `org-reading-list-loc-enrich'   Fill missing LCCN/OCLC/LCC/DDC on
@@ -437,9 +437,9 @@ ID is an ISBN, an Open Library edition id, or an openlibrary.org URL
 the :FOUND: property (an article URL, an Org link, a person's name —
 wherever you ran across the book).  ISBNs and LCCNs Open Library
 lacks fall back to the LC Catalog (one SRU query).  Entries without
-an ISBN
-record :OLID: and the Open Library page in :URL: instead; editions
-with a readable Internet Archive scan record the item id in :IA:.
+an ISBN record :OLID: and the Open Library page in :URL: instead;
+editions with a readable Internet Archive scan record the item id in
+:IA:.
 Signal a `user-error' if neither source has a record."
   (org-reading-list--entry-string (org-reading-list--entry-data id source)))
 
