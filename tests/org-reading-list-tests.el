@@ -206,6 +206,14 @@
   ;; Neither field present.
   (should-not (org-reading-list--marc-pub-field '(record nil) "c")))
 
+(ert-deftest org-reading-list-test-loc-entry-query-lccn-normalized ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD Old Book\n:PROPERTIES:\n:LCCN: 61-10539\n:END:\n")
+    (goto-char (point-min))
+    (should (equal (org-reading-list--loc-entry-query)
+                   '("bath.lccn=61010539")))))
+
 (ert-deftest org-reading-list-test-loc-records-isbn-preference ()
   (let* ((ebook org-reading-list-test--marc-record)
          (print-rec
