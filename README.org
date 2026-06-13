@@ -16,7 +16,8 @@ documented in [[file:doc/reading-list-schema.org][doc/reading-list-schema.org]].
 
 - Capture an entry from [[https://openlibrary.org][Open Library]] by ISBN, by Open Library
   edition id, or by pasting an openlibrary.org URL — pre-ISBN books
-  work via their edition id.
+  work via their edition id.  ISBNs Open Library lacks (e.g. 979-8
+  self-published books) fall back to the Library of Congress catalog.
 - Enrich entries from the Library of Congress catalog (SRU/MARCXML):
   backfill LCCN, OCLC number, LC and Dewey classification, and harvest
   650/651 subject headings as Org tags.
@@ -125,6 +126,9 @@ reading-list file:
   or same title and author (so reissues with a new publisher or year
   are caught) — and ask before adding; declining jumps to the
   existing entry (insert) or aborts (capture).
+  When Open Library has no record for an ISBN, the entry is built
+  from the Library of Congress catalog instead (one SRU query; the
+  LoC rate-limit note below applies).
 - =M-x org-reading-list-loc-enrich= on an entry: fills missing
   LCCN/OCLC/LCC/DDC from the Library of Congress record (queried by
   ISBN, or LCCN for pre-ISBN books). =C-u= overwrites existing values

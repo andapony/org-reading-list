@@ -4,7 +4,7 @@
 
 ;; Author: Rob Duncan
 ;; URL: https://github.com/YOUR-USERNAME/org-reading-list
-;; Version: 0.3.0
+;; Version: 0.4.0
 ;; Package-Requires: ((emacs "27.1") (org "9.4"))
 ;; Keywords: bib, outlines
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -38,7 +38,9 @@
 ;;   `org-reading-list-insert'       File an entry in the reading list
 ;;                                   file, fetched from Open Library by
 ;;                                   ISBN, Open Library edition id, or
-;;                                   OL URL.  Books already in the list
+;;                                   OL URL, falling back to the LC
+;;                                   Catalog for ISBNs Open Library
+;;                                   lacks.  Books already in the list
 ;;                                   (same ISBN/OLID, or same title and
 ;;                                   author) prompt before adding.
 ;;   `org-reading-list-capture'      The same, shaped for org-capture
@@ -408,14 +410,15 @@ renders.  Signal a `user-error' if no record is found."
      ":END:\n")))
 
 (defun org-reading-list-entry (id &optional source)
-  "Return an Org entry string for ID from Open Library data.
+  "Return an Org entry string for ID from Open Library or LoC data.
 ID is an ISBN, an Open Library edition id, or an openlibrary.org URL
 \(see `org-reading-list--bibkey').  SOURCE, if non-nil, is recorded in
 the :FOUND: property (an article URL, an Org link, a person's name —
-wherever you ran across the book).  Entries without an ISBN record
-:OLID: and the Open Library page in :URL: instead; editions with a
-readable Internet Archive scan record the item id in :IA:.  Signal a
-`user-error' if no record is found."
+wherever you ran across the book).  ISBNs Open Library lacks fall
+back to the LC Catalog (one SRU query).  Entries without an ISBN
+record :OLID: and the Open Library page in :URL: instead; editions
+with a readable Internet Archive scan record the item id in :IA:.
+Signal a `user-error' if neither source has a record."
   (org-reading-list--entry-string (org-reading-list--entry-data id source)))
 
 ;;;; Duplicate detection
