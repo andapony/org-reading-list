@@ -30,15 +30,22 @@ documented in [[file:doc/reading-list-schema.org][doc/reading-list-schema.org]].
 
 * Installation
 
-Not yet on MELPA. With Emacs 29+:
+Not yet on MELPA. With Emacs 30+:
 
 #+begin_src emacs-lisp
 (use-package org-reading-list
-  :vc (:url "https://github.com/andapony/org-reading-list"))
+  :vc (:url "https://github.com/andapony/org-reading-list"
+       :rev :newest))
 #+end_src
 
 or clone and add to =load-path= manually. Requires Emacs 27.1+ and a
 recent Org.
+
+Keep =:rev :newest=: without it the =:vc= keyword checks out the
+latest release as a detached HEAD, and =package-vc-upgrade= then
+silently does nothing — its =git pull= has no branch to merge into.
+Tracking the tip keeps the checkout on a branch, so upgrades
+fast-forward.
 
 * Configuration
 
