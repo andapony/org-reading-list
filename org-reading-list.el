@@ -684,15 +684,18 @@ with single spaces, in document order."
     nil))
 
 (defun org-reading-list--marc-isbns (rec code)
-  "All 020 subfield CODE values in MARC record REC, hyphens stripped."
+  "All 020 subfield CODE values in MARC record REC, hyphens stripped.
+A trailing qualifier embedded in the subfield (\"0689817479 (hc.)\")
+is dropped; values not starting with a digit are skipped."
   (let (isbns)
     (dolist (df (dom-by-tag rec 'datafield))
       (when (equal (dom-attr df 'tag) "020")
         (dolist (sf (dom-by-tag df 'subfield))
           (when (equal (dom-attr sf 'code) code)
-            (push (replace-regexp-in-string
-                   "-" "" (string-trim (dom-text sf)))
-                  isbns)))))
+            (let ((v (replace-regexp-in-string
+                      "-" "" (string-trim (dom-text sf)))))
+              (when (string-match "\\`[0-9][0-9Xx]*" v)
+                (push (match-string 0 v) isbns)))))))
     (nreverse isbns)))
 
 (defun org-reading-list--marc-subject-tags (recs)
@@ -778,8 +781,9 @@ same plist shape, described in `org-reading-list--entry-data'.  RECS
 is best match first, as `org-reading-list--loc-records' returns;
 each field falls through the records in order.  BIBKEY is the
 \"ISBN:...\" or \"LCCN:...\" bibkey that was queried; SOURCE is as in
-`org-reading-list-entry'.  Identifiers with no LoC equivalent
-\(:OLID:, :IA:, :URL:) are omitted."
+`org-reading-list-entry'.  For LCCN bibkeys the :ISBN: property
+comes from the records\\=' 020 fields, when present.  Identifiers
+with no LoC equivalent (:OLID:, :IA:, :URL:) are omitted."
   (let* ((queried (and (string-prefix-p "ISBN:" bibkey)
                        (replace-regexp-in-string
                         "-" "" (substring bibkey (length "ISBN:")))))

@@ -165,7 +165,15 @@
 (ert-deftest org-reading-list-test-marc-isbns ()
   (should (equal (org-reading-list--marc-isbns
                   org-reading-list-test--marc-record "a")
-                 '("9781984882004"))))
+                 '("9781984882004")))
+  ;; Pre-RDA records embed qualifiers in $a itself.
+  (should (equal (org-reading-list--marc-isbns
+                  '(record nil
+                           (datafield ((tag . "020"))
+                                      (subfield ((code . "a"))
+                                                "0689817479 (hc.)")))
+                  "a")
+                 '("0689817479"))))
 
 (ert-deftest org-reading-list-test-marc-subject-tags ()
   (should (equal (org-reading-list--marc-subject-tags
@@ -361,6 +369,26 @@ DDC-nil case.")
     (should (equal (cdr (assoc "LCCN" props)) "61010539"))
     (should (equal (cdr (assoc "CUSTOM_ID" props)) "kemble1962"))
     (should (equal (cdr (assoc "DATE" props)) "1962"))))
+
+(ert-deftest org-reading-list-test-marc-entry-data-multi-isbn ()
+  ;; LCCN bibkey, record with several 020s: all collected, first wins
+  ;; the :ISBN: prop (cataloging order).
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (rec '(record nil
+                       (datafield ((tag . "010"))
+                                  (subfield ((code . "a")) "  2005921845"))
+                       (datafield ((tag . "020"))
+                                  (subfield ((code . "a")) "9780747581086"))
+                       (datafield ((tag . "020"))
+                                  (subfield ((code . "a")) "0747581088 (pbk.)"))
+                       (datafield ((tag . "245") (ind1 . "0") (ind2 . "0"))
+                                  (subfield ((code . "a")) "Multi /"))))
+         (data (org-reading-list--marc-entry-data
+                (list rec) "LCCN:2005921845" nil))
+         (props (plist-get data :props)))
+    (should (equal (plist-get data :isbns)
+                   '("9780747581086" "0747581088")))
+    (should (equal (cdr (assoc "ISBN" props)) "9780747581086"))))
 
 ;;;; LoC fallback in entry-data / entry
 
