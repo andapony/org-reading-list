@@ -4,7 +4,7 @@
 
 ;; Author: Rob Duncan
 ;; URL: https://github.com/YOUR-USERNAME/org-reading-list
-;; Version: 0.4.1
+;; Version: 0.5.0
 ;; Package-Requires: ((emacs "27.1") (org "9.4"))
 ;; Keywords: bib, outlines
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -39,8 +39,9 @@
 ;;                                   file, fetched from Open Library by
 ;;                                   ISBN, Open Library edition id, or
 ;;                                   OL URL, falling back to the LC
-;;                                   Catalog for ISBNs Open Library
-;;                                   lacks.  Books already in the list
+;;                                   Catalog for ISBNs and LCCNs Open
+;;                                   Library lacks.  Books already in
+;;                                   the list
 ;;                                   (same ISBN/OLID, or same title and
 ;;                                   author) prompt before adding.
 ;;   `org-reading-list-capture'      The same, shaped for org-capture
@@ -434,8 +435,9 @@ renders.  Signal a `user-error' if no record is found."
 ID is an ISBN, an Open Library edition id, or an openlibrary.org URL
 \(see `org-reading-list--bibkey').  SOURCE, if non-nil, is recorded in
 the :FOUND: property (an article URL, an Org link, a person's name —
-wherever you ran across the book).  ISBNs Open Library lacks fall
-back to the LC Catalog (one SRU query).  Entries without an ISBN
+wherever you ran across the book).  ISBNs and LCCNs Open Library
+lacks fall back to the LC Catalog (one SRU query).  Entries without
+an ISBN
 record :OLID: and the Open Library page in :URL: instead; editions
 with a readable Internet Archive scan record the item id in :IA:.
 Signal a `user-error' if neither source has a record."
@@ -990,13 +992,15 @@ child, as `file+headline' would."
 (defun org-reading-list-insert (id)
   "File a reading-list entry for ID in `org-reading-list-file'.
 ID is an ISBN, an Open Library edition id, or an openlibrary.org URL.
+Prefixed identifiers (ISBN:, OLID:, LCCN:, OCLC:) are also accepted;
+LCCNs may be in catalog-card form (\"LCCN:61-10539\").
 The entry is appended as the last child of `org-reading-list-headline'
 \(created if absent), mirroring the capture template's target, and the
 file is displayed with point on the new entry.  When the book appears
 to be in the list already — same ISBN or OLID, or same title and
 author — you are asked first; declining jumps to the existing entry
 instead of inserting."
-  (interactive "sISBN / OL edition id / OL URL: ")
+  (interactive "sBook id (ISBN, OL edition id or URL, LCCN:…, OCLC:…): ")
   (let* ((data (org-reading-list--entry-data id))
          (dup (org-reading-list--duplicate-in-file data))
          (buf (find-file-noselect org-reading-list-file))
@@ -1017,12 +1021,15 @@ instead of inserting."
 (defun org-reading-list-capture ()
   "Build a capture entry, prompting for an identifier and optional source.
 The identifier is an ISBN, an Open Library edition id, or an
-openlibrary.org URL.  Intended for use in an Org capture template as
+openlibrary.org URL.  Prefixed identifiers (ISBN:, OLID:, LCCN:,
+OCLC:) are also accepted; LCCNs may be in catalog-card form
+\(\"LCCN:61-10539\").  Intended for use in an Org capture template as
 \"%(org-reading-list-capture)\".  Falls back to a bare manual entry if
 the lookup fails.  When the book appears to be in the list already,
 you are asked first; declining aborts the capture."
   (let ((id (string-trim
-             (read-string "ISBN / OL edition id / OL URL: ")))
+             (read-string
+              "Book id (ISBN, OL edition id or URL, LCCN:…, OCLC:…): ")))
         (source (let ((s (string-trim
                           (read-string
                            "Found via (URL, blank to skip): "))))
