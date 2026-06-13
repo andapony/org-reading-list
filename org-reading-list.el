@@ -4,7 +4,7 @@
 
 ;; Author: Rob Duncan
 ;; URL: https://github.com/YOUR-USERNAME/org-reading-list
-;; Version: 0.5.0
+;; Version: 0.6.0
 ;; Package-Requires: ((emacs "27.1") (org "9.4"))
 ;; Keywords: bib, outlines
 ;; SPDX-License-Identifier: GPL-3.0-or-later
