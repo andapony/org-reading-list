@@ -452,14 +452,15 @@ DDC-nil case.")
       (should (string-match-p "No Open Library record" (cadr err))))))
 
 (ert-deftest org-reading-list-test-entry-ol-hit-skips-loc ()
-  ;; An Open Library hit must not trigger the LoC fallback.
+  ;; An Open Library hit carrying an identifier must not query LoC.
   (let ((org-reading-list-file "/nonexistent/orl-test.org"))
     (cl-letf (((symbol-function 'org-reading-list--fetch-json)
                (lambda (_url)
                  '(("ISBN:9780252066313"
                     . ((title . "One")
                        (authors . (((name . "Ann Smith"))))
-                       (publish_date . "1997"))))))
+                       (publish_date . "1997")
+                       (identifiers . ((isbn_13 . ("9780252066313")))))))))
               ((symbol-function 'org-reading-list--fetch-xml)
                (lambda (_url)
                  (ert-fail "LoC queried despite an Open Library hit"))))
@@ -530,6 +531,193 @@ DDC-nil case.")
       (should (string-match-p
                "No Open Library or LoC record for LCCN:61010539"
                (cadr err))))))
+
+;;;; Title/author LoC bridge (OLID / pre-ISBN books OL holds no id for)
+
+(defconst org-reading-list-test--loc-men-memories
+  '(record nil
+           (datafield ((tag . "010") (ind1 . " ") (ind2 . " "))
+                      (subfield ((code . "a")) "   02026842 "))
+           (datafield ((tag . "050") (ind1 . "0") (ind2 . "0"))
+                      (subfield ((code . "a")) "F869.S3")
+                      (subfield ((code . "b")) "B18"))
+           (datafield ((tag . "100") (ind1 . "1") (ind2 . " "))
+                      (subfield ((code . "a")) "Barry, T. A.")
+                      (subfield ((code . "q")) "(Theodore Augustus),")
+                      (subfield ((code . "d")) "1825-1881."))
+           (datafield ((tag . "245") (ind1 . "1") (ind2 . "0"))
+                      (subfield ((code . "a"))
+                                "Men and memories of San Francisco, in the \"spring of '50.\""))
+           (datafield ((tag . "260") (ind1 . " ") (ind2 . " "))
+                      (subfield ((code . "a")) "San Francisco,")
+                      (subfield ((code . "b")) "A.L. Bancroft & company,")
+                      (subfield ((code . "c")) "1873."))
+           (datafield ((tag . "651") (ind1 . " ") (ind2 . "0"))
+                      (subfield ((code . "a")) "San Francisco (Calif.)")
+                      (subfield ((code . "x")) "History")))
+  "LoC MARC record for the Men-and-memories title (LCCN 02026842).")
+
+(defconst org-reading-list-test--loc-men-memories-dom
+  `(zs:searchRetrieveResponse
+    nil
+    (zs:records nil
+                (zs:record nil
+                           (zs:recordData
+                            nil
+                            ,org-reading-list-test--loc-men-memories))))
+  "SRU response DOM wrapping the Men-and-memories record.")
+
+(defconst org-reading-list-test--ol-men-memories
+  '((title . "Men and memories of San Francisco, in the \"spring of '50\"")
+    (authors . (((name . "Barry, T. A."))))
+    (publish_date . "1873")
+    (number_of_pages . 296)
+    (publishers . (((name . "A.L. Bancroft & Company"))))
+    (publish_places . (((name . "San Francisco"))))
+    (ebooks . (((preview_url
+                 . "https://archive.org/details/menandmemoriess00pattgoog"))))
+    (url . "http://openlibrary.org/books/OL23402322M/Men_and_memories")
+    (identifiers . ((openlibrary . ("OL23402322M")))))
+  "Open Library `data' record lacking every identifier but the OLID.")
+
+(ert-deftest org-reading-list-test-loc-title-author-cql ()
+  ;; Leading title phrase (before subtitle/comma, quotes dropped) and
+  ;; author surname, url-encoded for the SRU query string.
+  (should (equal
+           (org-reading-list--loc-title-author-cql
+            "Men and memories of San Francisco, in the \"spring of '50\""
+            "Barry, T. A.")
+           (url-hexify-string
+            (concat "bath.title=\"Men and memories of San Francisco\""
+                    " and bath.author=\"Barry\""))))
+  ;; Both a title and an author are required.
+  (should-not (org-reading-list--loc-title-author-cql "Title only" nil))
+  (should-not (org-reading-list--loc-title-author-cql nil "Author, A.")))
+
+(ert-deftest org-reading-list-test-loc-match-p ()
+  (let ((rec org-reading-list-test--loc-men-memories))
+    ;; Author surname and year agree.
+    (should (org-reading-list--loc-match-p rec "Barry, T. A." "1873"))
+    ;; Unknown date on our side still matches on the author surname.
+    (should (org-reading-list--loc-match-p rec "Barry, T. A." nil))
+    ;; Wrong author surname: reject even with the right year.
+    (should-not (org-reading-list--loc-match-p rec "Patten, B. A." "1873"))
+    ;; Year mismatch: reject.
+    (should-not (org-reading-list--loc-match-p rec "Barry, T. A." "1999"))))
+
+(ert-deftest org-reading-list-test-entry-olid-augments-from-loc ()
+  ;; OLID/pre-ISBN book: OL supplies description, LoC fills identifiers.
+  (let ((org-reading-list-file "/nonexistent/orl-test.org")
+        (xml-calls 0))
+    (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+               (lambda (_url)
+                 (list (cons "OLID:OL23402322M"
+                             org-reading-list-test--ol-men-memories))))
+              ((symbol-function 'org-reading-list--fetch-xml)
+               (lambda (url)
+                 (cl-incf xml-calls)
+                 (should (string-match-p "bath\\.title" url))
+                 (should (string-match-p "bath\\.author" url))
+                 org-reading-list-test--loc-men-memories-dom)))
+      (let ((entry (org-reading-list-entry
+                    "https://openlibrary.org/works/OL228795W/x?edition=key%3A/books/OL23402322M")))
+        ;; OL fields survive...
+        (should (string-match-p "^:AUTHOR: Barry, T. A.$" entry))
+        (should (string-match-p "^:IA: menandmemoriess00pattgoog$" entry))
+        ;; ...and LoC fills the identifiers OL lacked.
+        (should (string-match-p "^:LCCN: 02026842$" entry))
+        (should (string-match-p "^:LCC: F869.S3 B18$" entry))
+        (should (= xml-calls 1))))))
+
+(ert-deftest org-reading-list-test-entry-olid-augment-guard ()
+  ;; LoC returns a non-matching book: nothing is merged.
+  (let ((org-reading-list-file "/nonexistent/orl-test.org")
+        (xml-calls 0))
+    (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+               (lambda (_url)
+                 (list (cons "OLID:OL1M"
+                             org-reading-list-test--ol-men-memories))))
+              ((symbol-function 'org-reading-list--fetch-xml)
+               (lambda (_url)
+                 (cl-incf xml-calls)
+                 org-reading-list-test--loc-kemble-dom)))
+      (let ((entry (org-reading-list-entry "OL1M")))
+        (should (string-match-p "^:AUTHOR: Barry, T. A.$" entry))
+        (should-not (string-match-p ":LCCN:" entry))
+        (should (= xml-calls 1))))))
+
+(ert-deftest org-reading-list-test-loc-entry-query-title-author ()
+  ;; No ISBN/LCCN on the entry: query by title and author instead.
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD Men and memories\n:PROPERTIES:\n"
+            ":TITLE: Men and memories of San Francisco,"
+            " in the \"spring of '50\"\n"
+            ":AUTHOR: Barry, T. A.\n:END:\n")
+    (goto-char (point-min))
+    (should (equal (org-reading-list--loc-entry-query)
+                   (list (org-reading-list--loc-title-author-cql
+                          (concat "Men and memories of San Francisco,"
+                                  " in the \"spring of '50\"")
+                          "Barry, T. A."))))))
+
+(ert-deftest org-reading-list-test-loc-enrich-by-title-author ()
+  ;; loc-enrich works from a title/author-only entry, guarded by author.
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD Men and memories\n:PROPERTIES:\n"
+            ":TITLE: Men and memories of San Francisco\n"
+            ":AUTHOR: Barry, T. A.\n:END:\n")
+    (goto-char (point-min))
+    (cl-letf (((symbol-function 'org-reading-list--fetch-xml)
+               (lambda (url)
+                 (should (string-match-p "bath\\.title" url))
+                 org-reading-list-test--loc-men-memories-dom)))
+      (org-reading-list-loc-enrich)
+      (should (equal (org-entry-get nil "LCCN") "02026842"))
+      (should (equal (org-entry-get nil "LCC") "F869.S3 B18")))))
+
+(ert-deftest org-reading-list-test-loc-enrich-title-author-guard ()
+  ;; A title/author search whose records fail the author guard errors,
+  ;; rather than applying a wrong record's identifiers.
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD Men and memories\n:PROPERTIES:\n"
+            ":TITLE: Men and memories of San Francisco\n"
+            ":AUTHOR: Patten, B. A.\n:END:\n")
+    (goto-char (point-min))
+    (cl-letf (((symbol-function 'org-reading-list--fetch-xml)
+               (lambda (_url)
+                 org-reading-list-test--loc-men-memories-dom)))
+      (should-error (org-reading-list-loc-enrich) :type 'user-error))))
+
+;;;; Internet Archive PDF download
+
+(ert-deftest org-reading-list-test-download-pdf-records-localfile ()
+  ;; The download command must record the local copy in a settable
+  ;; property and flag the holding, without erroring.  :FILE: is one of
+  ;; Org's reserved special properties and cannot hold this value.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (dir (make-temp-file "orl-pdf" t))
+         (org-reading-list-pdf-directory dir))
+    (unwind-protect
+        (with-temp-buffer
+          (org-mode)
+          (insert "* TOREAD A Book\n:PROPERTIES:\n"
+                  ":CUSTOM_ID: barry1873\n:IA: someiaitem\n:END:\n")
+          (goto-char (point-min))
+          (cl-letf (((symbol-function 'url-copy-file)
+                     (lambda (_url newname &rest _)
+                       (with-temp-file newname (insert "%PDF-1.4\n")))))
+            (org-reading-list-download-pdf))
+          (should (equal (org-entry-get nil "LOCALFILE")
+                         (format "[[file:%s]]"
+                                 (abbreviate-file-name
+                                  (expand-file-name "barry1873.pdf" dir)))))
+          (should-not (org-entry-get nil "FILE"))
+          (should (string-match-p "OWN (pdf)"
+                                  (or (org-entry-get nil "HOLDINGS") ""))))
+      (delete-directory dir t))))
 
 ;;;; Filing entries under a headline
 

@@ -92,7 +92,7 @@ treating them as the book's actual identifiers.)
 | DDC        | no  | Dewey classification (keep prime marks)  | =979.4/61=                       |
 | HOLDINGS   | no  | =";"=-separated codes, optional parenthetical note | =OWN (hardcover); SFPL; MILIB= |
 | CALLNO     | no  | local shelf number(s): =CODE number=, =";"=-separated | =MILIB 979.461 L88; SFPL 979.461 L88= |
-| FILE       | no  | Org file link to a local copy (PDF etc.) | =[[file:~/org/reading-list-pdfs/marryat1962.pdf]]= |
+| LOCALFILE  | no  | Org file link to a local copy (PDF etc.) | =[[file:~/org/reading-list-pdfs/marryat1962.pdf]]= |
 | ADDED      | yes | inactive Org timestamp                   | =[2026-06-10 Wed]=               |
 | FOUND      | no  | URL, Org link, or free text provenance   | =https://…= or =rec. from C. Karr= |
 | URL        | no  | canonical link for the work itself       | publisher or Open Library page   |
@@ -176,7 +176,7 @@ Open Library paths refer to the books API with =jscmd=data=
 | LCC       | — (non-standard)       | 050 =$a $b=                   | =classifications.lc_classifications[0]= |
 | DDC       | — (non-standard)       | 082 =$a=                      | =classifications.dewey_decimal_class[0]= |
 | CALLNO    | — (non-standard)       | 090/099 or holdings display   | — (local; look up per library)          |
-| FILE      | =file= (biblatex/JabRef) | —                           | — (local; see download command)         |
+| LOCALFILE | =file= (biblatex/JabRef) | —                           | — (local; see download command)         |
 | HOLDINGS  | — (non-standard)       | — (local availability data)   | — (look up per library catalog)         |
 | tags      | =keywords=             | 650/651 =$a $x $y $z=         | =subjects[].name=                       |
 | URL       | =url=                  | 856 =$u=                      | =url= (the OL page itself)              |
@@ -227,11 +227,17 @@ Open Library paths refer to the books API with =jscmd=data=
   records" section of the page) usually carry full LCCN/OCLC/LCC/DDC
   even for 19th-century books. When an entry has no ISBN, the capture
   code records :OLID: and the OL page in :URL: as its stable handles.
+  When the OL edition itself carries no ISBN or LCCN, the capture code
+  runs one title/author SRU search against LoC and fills in the
+  LCCN/OCLC/LCC/DDC it finds, keeping the record only when its author
+  and year agree with OL's; =M-x org-reading-list-loc-enrich= does the
+  same on demand for an entry that has a :TITLE: and :AUTHOR: but
+  neither identifier.
 - *Internet Archive scans*: when an edition has a readable IA scan,
   capture extracts the item identifier from =ebooks[0].preview_url=
   into :IA:. =M-x org-reading-list-download-pdf= then fetches the
   item's PDF into `org-reading-list-pdf-directory', named
-  =<citekey>.pdf=, records an Org file link in :FILE:, and adds
+  =<citekey>.pdf=, records an Org file link in :LOCALFILE:, and adds
   =OWN (pdf)= to :HOLDINGS:. Not every IA item offers a direct PDF
   (some are DjVu/EPUB only); the command verifies the downloaded file
   is actually a PDF and points you at the item page if not. A link
@@ -255,9 +261,10 @@ heading bearing =:BTYPE:= to a =.bib= file. Two wrinkles:
 2. Non-BibTeX properties (LCCN, OCLC, OLID, IA, LCC, DDC, CALLNO,
    HOLDINGS, ADDED, FOUND,
    COVERS) are ignored on export — by design; they stay home in Org.
-3. FILE corresponds to the =file= field citar and JabRef read, but is
-   stored here as an Org link; strip the =[[file:= … =]]= wrapper to a
-   bare path if you carry it into a =.bib=.
+3. LOCALFILE corresponds to the =file= field citar and JabRef read, but
+   is stored here as an Org link; strip the =[[file:= … =]]= wrapper to a
+   bare path if you carry it into a =.bib=.  (The name avoids Org's
+   reserved =FILE= special property, which cannot be set on an entry.)
 
 ** biblatex / citar / Zotero
 
