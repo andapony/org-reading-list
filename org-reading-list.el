@@ -401,7 +401,10 @@ BIBKEY is the bibkey REC was fetched under; SOURCE is as in
   "Fetch bibliographic data for ID and compute entry fields.
 Queries Open Library; for an ISBN or LCCN it lacks (common for
 979-8 self-published and pre-ISBN books), falls back to the LC
-Catalog over SRU.  ID and SOURCE are as in
+Catalog over SRU.  When Open Library has the record but no ISBN or
+LCCN (typical of OLID/pre-ISBN lookups), a title/author SRU search
+fills in the LCCN/OCLC/LCC/DDC LoC holds (see
+`org-reading-list--loc-augment-data').  ID and SOURCE are as in
 `org-reading-list-entry'.  Return a plist:
 :title is the full title, :tags the subject tags, :isbns every ISBN
 on the record (hyphens stripped; used for duplicate checks), and
@@ -410,7 +413,8 @@ renders.  Signal a `user-error' if no record is found."
   (let* ((bibkey (org-reading-list--bibkey id))
          (rec (org-reading-list--openlibrary bibkey)))
     (cond
-     (rec (org-reading-list--ol-entry-data rec bibkey source))
+     (rec (org-reading-list--loc-augment-data
+           (org-reading-list--ol-entry-data rec bibkey source)))
      ((or (string-prefix-p "ISBN:" bibkey)
           (string-prefix-p "LCCN:" bibkey))
       (org-reading-list--loc-entry-data bibkey source))
@@ -436,7 +440,9 @@ ID is an ISBN, an Open Library edition id, or an openlibrary.org URL
 \(see `org-reading-list--bibkey').  SOURCE, if non-nil, is recorded in
 the :FOUND: property (an article URL, an Org link, a person's name —
 wherever you ran across the book).  ISBNs and LCCNs Open Library
-lacks fall back to the LC Catalog (one SRU query).  Entries without
+lacks fall back to the LC Catalog (one SRU query); an OLID/pre-ISBN
+record Open Library has but holds no ISBN or LCCN for is augmented
+with LoC identifiers via a title/author search.  Entries without
 an ISBN record :OLID: and the Open Library page in :URL: instead;
 editions with a readable Internet Archive scan record the item id in
 :IA:.
@@ -581,7 +587,7 @@ already present when HOLDINGS contains any OWN entry."
   "Download the Internet Archive PDF for the Org entry at point.
 Uses the :IA: identifier; saves to `org-reading-list-pdf-directory',
 named after the entry's cite key (falling back to the IA id); records
-an Org file link in :FILE: and adds \"OWN (pdf)\" to :HOLDINGS:.
+an Org file link in :LOCALFILE: and adds \"OWN (pdf)\" to :HOLDINGS:.
 
 Not every IA item offers a direct PDF; if the downloaded file isn't
 one, it is deleted and the item page is suggested instead."
@@ -611,7 +617,7 @@ one, it is deleted and the item page is suggested instead."
         (user-error
          "Item %s has no direct PDF at that URL; check https://archive.org/details/%s for available formats"
          ia ia)))
-    (org-entry-put nil "FILE"
+    (org-entry-put nil "LOCALFILE"
                    (format "[[file:%s]]" (abbreviate-file-name dest)))
     (org-reading-list--holdings-add "OWN (pdf)")
     (message "Saved %s" (abbreviate-file-name dest))))
@@ -625,29 +631,45 @@ one, it is deleted and the item page is suggested instead."
 
 (defun org-reading-list--loc-entry-query ()
   "Build the SRU query for the Org entry at point.
-Return (QUERY . ISBN); ISBN is nil when querying by LCCN.  The LCCN is
-normalized, so catalog-card forms in :LCCN: work.  Signal a
-`user-error' when the entry has neither identifier."
+Return (QUERY . ISBN); ISBN is nil unless querying by ISBN.  Prefers
+:ISBN:, then :LCCN: (normalized, so catalog-card forms work), then a
+title/author search built from :TITLE: and :AUTHOR: for entries with
+neither identifier (see `org-reading-list--loc-title-author-cql').
+Signal a `user-error' when none of those is available."
   (let* ((isbn (let ((v (org-entry-get nil "ISBN")))
                  (and v (car (split-string v "[, ]" t)))))
-         (lccn (org-entry-get nil "LCCN")))
+         (lccn (org-entry-get nil "LCCN"))
+         (cql (org-reading-list--loc-title-author-cql
+               (org-entry-get nil "TITLE") (org-entry-get nil "AUTHOR"))))
     (cond
      (isbn (cons (format "bath.isbn=%s" isbn) isbn))
      (lccn (cons (format "bath.lccn=%s"
                          (org-reading-list--lccn-normalize lccn))
                  nil))
+     (cql (cons cql nil))
      (t (user-error
-         "Entry at point has neither :ISBN: nor :LCCN: to query by")))))
+         "Entry at point has no :ISBN:, :LCCN:, or :TITLE:+:AUTHOR: to query by")))))
 
 (defun org-reading-list--loc-entry-records ()
   "Fetch LoC MARC records for the Org entry at point, best match first.
-One SRU request.  Signal a `user-error' on no response or no records."
-  (let* ((qi (org-reading-list--loc-entry-query))
+One SRU request.  When the entry is matched only by title/author (it
+has neither :ISBN: nor :LCCN:), records are filtered to those whose
+author and year agree with the entry, guarding against unrelated
+hits.  Signal a `user-error' on no response or no records."
+  (let* ((isbn (let ((v (org-entry-get nil "ISBN")))
+                 (and v (car (split-string v "[, ]" t)))))
+         (lccn (org-entry-get nil "LCCN"))
+         (qi (org-reading-list--loc-entry-query))
          (query (car qi))
-         (isbn (cdr qi))
          (dom (or (org-reading-list--loc-marcxml query)
                   (user-error "No response from LoC SRU for %s" query)))
-         (recs (org-reading-list--loc-records dom isbn)))
+         (recs (org-reading-list--loc-records dom (cdr qi))))
+    (when (and (not isbn) (not lccn))
+      (setq recs (seq-filter
+                  (lambda (r)
+                    (org-reading-list--loc-match-p
+                     r (org-entry-get nil "AUTHOR") (org-entry-get nil "DATE")))
+                  recs)))
     (unless recs
       (user-error "No LoC catalog record found for %s" query))
     recs))
@@ -732,6 +754,12 @@ nil when S is nil or nothing remains."
   (or (org-reading-list--marc-field rec "264" code)
       (org-reading-list--marc-field rec "260" code)))
 
+(defun org-reading-list--marc-year (rec)
+  "Return a four-digit year from REC's 264/260 $c, or nil."
+  (let ((c (org-reading-list--marc-pub-field rec "c")))
+    (when (and c (string-match "[0-9]\\{4\\}" c))
+      (match-string 0 c))))
+
 (defun org-reading-list--loc-records (dom isbn)
   "Return MARC record nodes from SRU response DOM, best match first.
 When ISBN is non-nil, a record whose 020 $a equals it (the edition
@@ -802,11 +830,7 @@ with no LoC equivalent (:OLID:, :IA:, :URL:) are omitted."
                     (org-reading-list--marc-strip-punct
                      (org-reading-list--marc-field r "100")))))
          (date (org-reading-list--loc-first
-                recs
-                (lambda (r)
-                  (let ((c (org-reading-list--marc-pub-field r "c")))
-                    (when (and c (string-match "[0-9]\\{4\\}" c))
-                      (match-string 0 c))))))
+                recs #'org-reading-list--marc-year))
          (pages (org-reading-list--loc-first
                  recs
                  (lambda (r)
@@ -862,6 +886,75 @@ naming both sources when LoC has no record either."
       (user-error "No Open Library or LoC record for %s" bibkey))
     (org-reading-list--marc-entry-data recs bibkey source)))
 
+;;;; Library of Congress: title/author bridge
+
+(defun org-reading-list--loc-title-author-cql (title author)
+  "Build a url-safe SRU CQL query from TITLE and AUTHOR, or nil.
+Searches the leading title phrase (before any subtitle colon or
+comma, embedded quotes removed) and the author surname (the part
+before the comma of an inverted name).  Returns nil unless both are
+present — a title-only search is too broad to trust.  The bridge for
+OLID/pre-ISBN books Open Library holds, but without an ISBN or LCCN
+to query LoC by."
+  (let* ((main (and (stringp title)
+                    (string-trim
+                     (replace-regexp-in-string
+                      "\"" "" (car (split-string title "[:,]"))))))
+         (surname (and (stringp author)
+                       (string-trim
+                        (replace-regexp-in-string
+                         "\"" "" (car (split-string author ",")))))))
+    (when (and main (not (string-empty-p main))
+               surname (not (string-empty-p surname)))
+      (url-hexify-string
+       (format "bath.title=\"%s\" and bath.author=\"%s\"" main surname)))))
+
+(defun org-reading-list--loc-match-p (rec author date)
+  "Non-nil if MARC REC plausibly matches AUTHOR and DATE.
+Guards the title/author bridge against unrelated hits: REC's 100
+surname must equal AUTHOR's surname, and when both DATE and REC's
+publication year are known they must agree.  AUTHOR is an inverted
+name; DATE is a four-digit year or nil."
+  (let* ((ours (org-reading-list--dup-surname-key author))
+         (theirs (org-reading-list--dup-surname-key
+                  (org-reading-list--marc-strip-punct
+                   (org-reading-list--marc-field rec "100"))))
+         (year (org-reading-list--marc-year rec)))
+    (and ours theirs (equal ours theirs)
+         (or (null date) (null year) (equal date year)))))
+
+(defun org-reading-list--loc-augment-data (data)
+  "Fill missing LoC identifiers on DATA via a title/author SRU search.
+DATA is from `org-reading-list--ol-entry-data'.  When it already
+carries an ISBN or LCCN, or lacks a title or author to search by, it
+is returned unchanged.  Otherwise one SRU query by leading title and
+author surname is run; the first record passing
+`org-reading-list--loc-match-p' fills DATA's empty
+LCCN/OCLC/LCC/DDC slots.  DATA's own descriptive fields are kept."
+  (let* ((props (plist-get data :props))
+         (author (cdr (assoc "AUTHOR" props)))
+         (date (cdr (assoc "DATE" props)))
+         (cql (and (not (cdr (assoc "ISBN" props)))
+                   (not (cdr (assoc "LCCN" props)))
+                   (org-reading-list--loc-title-author-cql
+                    (plist-get data :title) author))))
+    (when cql
+      (let* ((dom (org-reading-list--loc-marcxml cql))
+             (match (and dom
+                         (seq-find
+                          (lambda (r)
+                            (org-reading-list--loc-match-p r author date))
+                          (dom-by-tag dom 'record)))))
+        (when match
+          (dolist (kv (org-reading-list--loc-id-fields (list match)))
+            (when (cdr kv)
+              (let ((cell (assoc (car kv) props)))
+                (if cell
+                    (when (null (cdr cell)) (setcdr cell (cdr kv)))
+                  (setq props (append props (list kv)))))))
+          (setq data (plist-put data :props props)))))
+    data))
+
 ;;;; Library of Congress: applying fetched data
 
 (defun org-reading-list--loc-apply-fields (recs &optional force)
@@ -901,11 +994,14 @@ Existing tags are kept and merged unless REPLACE is non-nil.  At most
 (defun org-reading-list-loc-enrich (&optional force)
   "Fill missing identifier properties of the Org entry at point from LoC.
 Queries the LC Catalog over SRU by the entry's :ISBN:, or by :LCCN:
-when there is no ISBN (pre-ISBN books), and sets :LCCN:, :OCLC:,
+when there is no ISBN (pre-ISBN books), or by :TITLE: and :AUTHOR:
+when the entry has neither identifier, and sets :LCCN:, :OCLC:,
 :LCC:, and :DDC: from the MARC 010, 035, 050, and 082 fields.  When
 several records match (print and ebook editions), the one whose 020 $a
 matches the ISBN is preferred, with the others consulted for any field
-it lacks.
+it lacks.  Title/author results are kept only when their author and
+year agree with the entry, so prune or correct an entry's :AUTHOR:
+and :DATE: first if the search comes back empty.
 
 By default existing property values are never overwritten; with a
 prefix argument FORCE (\\[universal-argument]), fetched values replace

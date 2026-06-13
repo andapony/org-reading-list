@@ -137,12 +137,17 @@ reading-list file:
   existing entry (insert) or aborts (capture).
   When Open Library has no record for an ISBN or LCCN, the entry is
   built from the Library of Congress catalog instead (one SRU query;
-  the LoC rate-limit note below applies).
+  the LoC rate-limit note below applies). When Open Library *has* the
+  record but holds no ISBN or LCCN — common for OLID/pre-ISBN
+  lookups — the identifiers LoC has (LCCN/OCLC/LCC/DDC) are filled in
+  from a title/author search, kept only when the author and year
+  agree with Open Library's.
 - =M-x org-reading-list-loc-enrich= on an entry: fills missing
   LCCN/OCLC/LCC/DDC from the Library of Congress record (queried by
-  ISBN, or LCCN for pre-ISBN books). =C-u= overwrites existing values
-  — useful for refreshing entries captured from pre-publication CIP
-  records once LoC completes them.
+  ISBN, by LCCN for pre-ISBN books, or by :TITLE:+:AUTHOR: when the
+  entry has neither identifier — guarded by author and year). =C-u=
+  overwrites existing values — useful for refreshing entries captured
+  from pre-publication CIP records once LoC completes them.
 - =M-x org-reading-list-loc-tags=: adds the LoC subject headings as
   normalized tags (=C-u= replaces instead of merging). Prune to your
   own tag vocabulary afterward.
@@ -150,7 +155,7 @@ reading-list file:
   completion over your holdings codes.
 - =M-x org-reading-list-download-pdf=: for entries with an =:IA:=
   identifier, downloads the Internet Archive PDF into
-  =org-reading-list-pdf-directory=, links it from =:FILE:=, and adds
+  =org-reading-list-pdf-directory=, links it from =:LOCALFILE:=, and adds
   =OWN (pdf)= to =:HOLDINGS:=.
 
 * Etiquette and caveats
