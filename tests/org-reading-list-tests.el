@@ -52,6 +52,22 @@
   (should-error (org-reading-list--bibkey "not a book")
                 :type 'user-error))
 
+(ert-deftest org-reading-list-test-lccn-normalize ()
+  ;; Catalog-card form: hyphen dropped, serial padded to six digits.
+  (should (equal (org-reading-list--lccn-normalize "61-10539")
+                 "61010539"))
+  (should (equal (org-reading-list--lccn-normalize "2003-12345")
+                 "2003012345"))
+  ;; Alpha-prefixed card numbers pad the same way.
+  (should (equal (org-reading-list--lccn-normalize "agr07-496")
+                 "agr07000496"))
+  ;; Already-canonical and space-padded values: spaces stripped only.
+  (should (equal (org-reading-list--lccn-normalize "  2023911799")
+                 "2023911799"))
+  (should (equal (org-reading-list--lccn-normalize "61010539")
+                 "61010539"))
+  (should-not (org-reading-list--lccn-normalize nil)))
+
 ;;;; Name inversion
 
 (ert-deftest org-reading-list-test-invert-simple ()
