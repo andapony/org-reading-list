@@ -549,6 +549,20 @@ DDC-nil case.")
               org-reading-list-test--dup-entries)))
     (should (eq (car dup) 'exact))))
 
+(ert-deftest org-reading-list-test-find-dup-loc-data ()
+  ;; MARC-derived data matches an existing entry by ISBN (exact) even
+  ;; though it carries no OLID.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (data (org-reading-list--marc-entry-data
+                (list org-reading-list-test--loc-buried-ships)
+                "ISBN:9798393569716" nil))
+         (entries '((:pos 1 :heading "TOREAD Buried ships of San Francisco"
+                     :isbns ("9798393569716") :olid nil
+                     :title "Buried ships of San Francisco"
+                     :author "Filion, Ron S"))))
+    (should (eq (car (org-reading-list--find-duplicate data entries))
+                'exact))))
+
 (defconst org-reading-list-test--dup-file-content
   (concat "* Books\n** TOREAD One: A Tale\n:PROPERTIES:\n"
           ":ISBN: 0252066316\n:TITLE: One: A Tale\n"
