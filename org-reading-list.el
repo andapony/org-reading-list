@@ -469,6 +469,41 @@ entries left below `org-reading-list-tag-min'.  Modify nothing."
         (goto-char (point-min))))
     (display-buffer buf)))
 
+(defun org-reading-list--preen-entry (vocab rewrites)
+  "Preen the tags of the Org entry at point against VOCAB and REWRITES.
+Set the entry's tags to the rewritten set and return them."
+  (let ((new (car (org-reading-list--rewrite-tags
+                   (org-get-tags nil t) vocab rewrites))))
+    (org-set-tags new)
+    new))
+
+;;;###autoload
+(defun org-reading-list-preen-tags (&optional all)
+  "Preen the tags of the Org entry at point to the controlled vocabulary.
+Rewrite the tags via `org-reading-list-tag-rewrites' against the buffer's
+vocabulary (its #+TAGS:).  With a prefix argument ALL, preen every book
+entry (those with a non-empty :BTYPE:) in the buffer, after confirmation.
+See `org-reading-list-lint-tags' for a non-destructive preview."
+  (interactive "P")
+  (let ((vocab (org-reading-list--tag-vocabulary))
+        (rewrites org-reading-list-tag-rewrites))
+    (cond
+     ((null vocab)
+      (message "No tag vocabulary: set #+TAGS: or org-reading-list-tag-vocabulary"))
+     (all
+      (let ((n (length (org-map-entries #'ignore "BTYPE={.}"))))
+        (when (yes-or-no-p (format "Preen tags of %d entries? " n))
+          (org-map-entries
+           (lambda () (org-reading-list--preen-entry vocab rewrites))
+           "BTYPE={.}")
+          (message "Preened %d entries" n))))
+     (t
+      (org-reading-list--preen-entry vocab rewrites)
+      (message "Preened: %s"
+               (or (string-join (org-get-tags nil t) " ") "none"))))))
+
+
+
 ;;;; Entry construction
 
 (defun org-reading-list--ol-entry-data (rec bibkey source)

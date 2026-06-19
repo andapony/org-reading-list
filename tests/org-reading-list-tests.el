@@ -194,6 +194,31 @@
        (should (equal (plist-get (plist-get b :record) :dropped-unresolved)
                       '("unmapped_thing")))))))
 
+(ert-deftest org-reading-list-test-preen-entry ()
+  (org-reading-list-test--with-list
+   (goto-char (point-min))
+   (re-search-forward "^\\*\\* TOREAD A")
+   (let ((vocab (org-reading-list--tag-vocabulary)))
+     (org-reading-list--preen-entry vocab org-reading-list-tag-rewrites)
+     (should (equal (org-get-tags nil t) '("gold_rush"))))))
+
+(ert-deftest org-reading-list-test-preen-buffer-confirm ()
+  (org-reading-list-test--with-list
+   ;; Decline: nothing changes.
+   (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) nil)))
+     (org-reading-list-preen-tags t))
+   (goto-char (point-min))
+   (re-search-forward "^\\*\\* TOREAD A")
+   (should (equal (org-get-tags nil t) '("gold_discoveries" "history")))
+   ;; Accept: both entries preen.
+   (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+     (org-reading-list-preen-tags t))
+   (goto-char (point-min))
+   (re-search-forward "^\\*\\* TOREAD A")
+   (should (equal (org-get-tags nil t) '("gold_rush")))))
+
+
+
 
 
 
