@@ -109,5 +109,23 @@
                (libxml-parse-html-region (point-min) (point-max)))))
     (should (= (length (org-reading-list-mi--results-candidates dom)) 1))))
 
+(ert-deftest org-reading-list-mi-test-marc-text-from-pre ()
+  (let ((dom (with-temp-buffer
+               (insert "<html><body><pre>245 14 |a Hello /</pre></body></html>")
+               (libxml-parse-html-region (point-min) (point-max)))))
+    (should (string-match-p "245" (org-reading-list-mi--marc-text dom)))))
+
+(ert-deftest org-reading-list-mi-test-bib-record-chains ()
+  (cl-letf (((symbol-function 'org-reading-list-mi--fetch-html)
+             (lambda (url)
+               (should (string-match-p "marc~b1146522" url))
+               (with-temp-buffer
+                 (insert "<html><body><pre>"
+                         org-reading-list-mi-test--marc-text
+                         "</pre></body></html>")
+                 (libxml-parse-html-region (point-min) (point-max))))))
+    (let ((rec (org-reading-list-mi--bib-record "b1146522")))
+      (should (equal (org-reading-list--marc-field rec "001") "44669515")))))
+
 (provide 'org-reading-list-mi-tests)
 ;;; org-reading-list-mi-tests.el ends here

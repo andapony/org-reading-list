@@ -134,5 +134,22 @@ that links to a bib record, capped at `org-reading-list-mi-max-results'."
               (throw 'done nil))))))
     (nreverse cands)))
 
+(defun org-reading-list-mi--marc-text (dom)
+  "Return the labeled-MARC text from a MARC-display DOM, or nil.
+Prefers the first <pre> block; falls back to the whole body text when
+no <pre> is present."
+  (let ((pre (car (dom-by-tag dom 'pre))))
+    (let ((text (if pre (dom-texts pre) (dom-texts dom))))
+      (and text (not (string-empty-p (string-trim text))) text))))
+
+(defun org-reading-list-mi--bib-record (bibid)
+  "Fetch and parse the MARC record for BIBID; return a record DOM or nil."
+  (let* ((url (format org-reading-list-mi-marc-url bibid))
+         (dom (org-reading-list-mi--fetch-html url))
+         (text (and dom (org-reading-list-mi--marc-text dom))))
+    (and text (org-reading-list-mi--parse-marc text))))
+
+
+
 (provide 'org-reading-list-mi)
 ;;; org-reading-list-mi.el ends here
