@@ -212,6 +212,42 @@ reading-list file:
   =org-reading-list-pdf-directory=, links it from =:LOCALFILE:=, and adds
   =OWN (pdf)= to =:HOLDINGS:=.
 
+** Controlled-vocabulary tags
+
+The reading-list file's own =#+TAGS:= line defines the controlled
+vocabulary.  Raw tags harvested from Open Library or the Library of
+Congress are normalized but may not yet match it — use the tools below
+to reconcile them.
+
+=org-reading-list-tag-rewrites= is a per-file alist mapping raw (or
+variant) tags to their vocabulary equivalent, or to =nil= to drop them
+entirely.  Set it as a file-local variable or in =.dir-locals.el=:
+
+#+begin_src emacs-lisp
+;; In the reading-list file's local variables or .dir-locals.el:
+((org-mode . ((org-reading-list-tag-rewrites
+               . (("gold_discoveries" . "gold_rush")
+                  ("vigilance_committees" . "vigilance")
+                  ("history" . nil))))))   ; nil = drop
+#+end_src
+
+The variable is marked =safe-local-variable= so Emacs will not prompt
+when the rewrite map is set this way.
+
+- =M-x org-reading-list-lint-tags=: a preview (dry run) — shows for
+  each entry the rewrites and drops that =preen= would apply, and flags
+  entries with fewer than =org-reading-list-tag-min= tags (default 1).
+  Nothing is modified.
+- =M-x org-reading-list-preen-tags=: applies the rewrite map to the
+  entry at point.  With =C-u=, preens every book entry in the buffer
+  after prompting for confirmation.
+- =org-reading-list-preen-on-capture= (default =nil=): when set,
+  capture and insert preen harvested tags against the target file's
+  vocabulary before filing the entry.
+- =org-reading-list-tag-infer-function= (default =nil=): a hook for
+  inferring tags for entries below the minimum.  Live LLM inference via
+  gptel is planned and will plug in here.
+
 * Etiquette and caveats
 
 - The Library of Congress asks automated clients of lx2.loc.gov to
