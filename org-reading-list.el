@@ -342,6 +342,7 @@ rejects overlong headings."
 
 ;;;; Controlled-vocabulary tags
 
+;;;###autoload
 (defun org-reading-list--tag-rewrites-safe-p (value)
   "Return non-nil if VALUE is a valid `org-reading-list-tag-rewrites'.
 That is an alist whose keys are strings and whose values are strings or nil."
@@ -365,6 +366,7 @@ Each element maps a raw tag string to a vocabulary tag string, or to nil
 to drop the raw tag.  Set per file via file-local variables or
 `.dir-locals.el'.  See `org-reading-list-preen-tags'."
   :type '(alist :key-type string :value-type (choice string (const nil))))
+;;;###autoload
 (put 'org-reading-list-tag-rewrites 'safe-local-variable
      #'org-reading-list--tag-rewrites-safe-p)
 
