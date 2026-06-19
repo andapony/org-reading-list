@@ -452,6 +452,7 @@ entries left below `org-reading-list-tag-min'.  Modify nothing."
   (let ((data (org-reading-list--lint-collect))
         (buf (get-buffer-create "*org-reading-list-tags*")))
     (with-current-buffer buf
+      (special-mode)
       (let ((inhibit-read-only t))
         (erase-buffer)
         (dolist (e data)
@@ -459,19 +460,14 @@ entries left below `org-reading-list-tag-min'.  Modify nothing."
             (insert (format "%s%s\n" (plist-get e :heading)
                             (if (plist-get e :thin) "   [THIN]" ""))
                     (format "  %s -> %s\n"
-                            (or (plist-get e :current) "()")
-                            (or (plist-get e :new) "()"))
+                            (or (plist-get e :current) "(none)")
+                            (or (plist-get e :new) "(none)"))
                     (if (plist-get rec :dropped-unresolved)
                         (format "  unresolved (need a rewrite or vocab entry): %s\n"
                                 (plist-get rec :dropped-unresolved))
                       ""))))
-        (goto-char (point-min))
-        (special-mode)))
+        (goto-char (point-min))))
     (display-buffer buf)))
-
-
-
-
 
 ;;;; Entry construction
 
