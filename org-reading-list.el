@@ -493,6 +493,70 @@ property.  Modify nothing."
         (goto-char (point-min))))
     (display-buffer buf)))
 
+(defun org-reading-list--subjects-from-upstream ()
+  "Return subjects for the entry at point from Open Library and the LC Catalog.
+Look the entry up by each identifier it carries (:ISBN:, :LCCN:, :OCLC:,
+:OLID:) and union the subjects the lookups yield.  Return normalized
+tokens, or nil when there is no identifier or no record."
+  (let (subjects)
+    (dolist (spec '(("ISBN" . "ISBN:") ("LCCN" . "LCCN:")
+                    ("OCLC" . "OCLC:") ("OLID" . "OLID:")))
+      (let ((v (org-entry-get nil (car spec))))
+        (when (and v (not (string-empty-p v)))
+          (let* ((id (concat (cdr spec) (car (split-string v "[, ]" t))))
+                 (data (ignore-errors (org-reading-list--entry-data id))))
+            (when data
+              (setq subjects (append subjects (plist-get data :subjects))))))))
+    (delete-dups subjects)))
+
+(defvar org-reading-list-subject-functions
+  (list #'org-reading-list--subjects-from-upstream)
+  "Functions returning normalized subjects for the entry at point.
+Each is called with point on a reading-list entry and returns a list of
+normalized subject tokens, or nil.  `org-reading-list-fetch-subjects'
+runs them all and unions the results into :SUBJECTS:.  Extension modules
+\(such as org-reading-list-mi) add their own source to this list.")
+
+(defun org-reading-list--fetch-entry-subjects ()
+  "Collect subjects for the entry at point and set :SUBJECTS:.
+Run every function in `org-reading-list-subject-functions', union and
+de-duplicate the results, and store them.  Return the token list, or nil
+when no source yielded subjects (the property is then left unchanged)."
+  (let ((subjects (delete-dups
+                   (mapcan (lambda (fn) (copy-sequence (funcall fn)))
+                           org-reading-list-subject-functions))))
+    (when subjects
+      (org-entry-put nil "SUBJECTS" (string-join subjects "; "))
+      subjects)))
+
+;;;###autoload
+(defun org-reading-list-fetch-subjects (&optional all)
+  "Populate the :SUBJECTS: of the entry at point from upstream sources.
+Union the normalized subjects returned by every function in
+`org-reading-list-subject-functions' (Open Library and the LC Catalog by
+the entry's identifiers, plus any registered source such as MILibrary)
+and store them in :SUBJECTS:.  With a prefix argument ALL, do this for
+every book entry (non-empty :BTYPE:) in the buffer, after confirmation.
+Entries from which no source returns subjects are left unchanged."
+  (interactive "P")
+  (if all
+      (let ((n (length (org-map-entries #'ignore "BTYPE={.}")))
+            (updated 0))
+        (when (yes-or-no-p (format "Fetch subjects for %d entries? " n))
+          (org-map-entries
+           (lambda ()
+             (when (org-reading-list--fetch-entry-subjects)
+               (setq updated (1+ updated))))
+           "BTYPE={.}")
+          (message "Updated :SUBJECTS: on %d of %d entries" updated n)))
+    (if (org-reading-list--fetch-entry-subjects)
+        (message "SUBJECTS: %s" (org-entry-get nil "SUBJECTS"))
+      (message "No subjects found for this entry"))))
+
+
+
+
+
 (defun org-reading-list--preen-entry (vocab rewrites)
   "Re-derive the Org tags of the entry at point from its :SUBJECTS:.
 Project the subjects through VOCAB and REWRITES, add inferred tags via

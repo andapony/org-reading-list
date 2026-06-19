@@ -1266,6 +1266,20 @@ BODY may reference `file', the temp file's path."
                  (org-reading-list--tag-vocabulary) nil)
                 'no-subjects))))
 
+(ert-deftest org-reading-list-test-fetch-subjects-unions-sources ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD X\n:PROPERTIES:\n:ISBN: 0375505415\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "^\\* TOREAD X")
+    (let ((org-reading-list-subject-functions
+           (list (lambda () '("sailors" "whaling"))
+                 (lambda () '("whaling" "sea_stories")))))
+      (org-reading-list--fetch-entry-subjects)
+      (should (equal (org-entry-get nil "SUBJECTS")
+                     "sailors; whaling; sea_stories")))))
+
+
 
 
 (provide 'org-reading-list-tests)
