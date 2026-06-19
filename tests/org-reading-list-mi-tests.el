@@ -232,6 +232,28 @@
         (should (equal (cdr (assoc "HOLDINGS" props)) "MILIB"))
         (should (equal (cdr (assoc "CALLNO" props)) "MILIB 973.92 N53"))))))
 
+(ert-deftest org-reading-list-mi-test-entry-data-bridge-falls-back-to-mi ()
+  ;; ISBN present but neither Open Library nor LoC has it (an MI-only
+  ;; edition): fall back to MI's own MARC instead of erroring.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (rec '(record nil
+                       (datafield ((tag . "020") (ind1 . "") (ind2 . ""))
+                                  (subfield ((code . "a")) "0792850149"))
+                       (datafield ((tag . "092") (ind1 . "") (ind2 . ""))
+                                  (subfield ((code . "a")) "FIC")
+                                  (subfield ((code . "b")) "M"))
+                       (datafield ((tag . "245") (ind1 . "1") (ind2 . "0"))
+                                  (subfield ((code . "a")) "Moby Dick /")))))
+    (cl-letf (((symbol-function 'org-reading-list--entry-data)
+               (lambda (&rest _)
+                 (user-error "No Open Library or LoC record for ISBN:0792850149"))))
+      (let* ((data (org-reading-list-mi--entry-data rec "src"))
+             (props (plist-get data :props)))
+        (should (equal (plist-get data :title) "Moby Dick"))
+        (should (equal (cdr (assoc "HOLDINGS" props)) "MILIB"))
+        (should (equal (cdr (assoc "CALLNO" props)) "MILIB FIC M"))))))
+
+
 (ert-deftest org-reading-list-mi-test-apply-update-enrich-empty ()
   (with-temp-buffer
     (org-mode)

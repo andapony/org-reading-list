@@ -236,20 +236,23 @@ MILIB holdings code is added, :CALLNO: gets a \"CODE callno\" pair, and
 (defun org-reading-list-mi--entry-data (rec &optional source)
   "Build reading-list entry data from MILibrary record REC.
 When REC carries an ISBN (020) or LCCN (010), the rich base comes from
-the existing Open Library + LoC pipeline (`org-reading-list--entry-data');
-otherwise the entry is built directly from REC's MARC.  MI holdings, the
-local call number, and the better abstract are overlaid either way.
-SOURCE, if non-nil, is recorded in :FOUND:."
+the existing Open Library + LoC pipeline (`org-reading-list--entry-data').
+If neither source has that identifier (an MI-only edition) or the
+lookup otherwise fails, the entry is built directly from REC's own
+MARC.  MI holdings, the local call number, and the better abstract are
+overlaid either way.  SOURCE, if non-nil, is recorded in :FOUND:."
   (let* ((isbn (car (org-reading-list--marc-isbns rec "a")))
          (lccn (let ((v (org-reading-list--marc-field rec "010")))
                  (and v (replace-regexp-in-string " " "" v))))
-         (base (cond
-                (isbn (org-reading-list--entry-data
-                       (concat "ISBN:" isbn) source))
-                (lccn (org-reading-list--entry-data
-                       (concat "LCCN:" lccn) source))
-                (t (org-reading-list--marc-entry-data
-                    (list rec) "MI" source)))))
+         (base (or (cond
+                    (isbn (ignore-errors
+                            (org-reading-list--entry-data
+                             (concat "ISBN:" isbn) source)))
+                    (lccn (ignore-errors
+                            (org-reading-list--entry-data
+                             (concat "LCCN:" lccn) source))))
+                   (org-reading-list--marc-entry-data
+                    (list rec) "MI" source))))
     (org-reading-list-mi--overlay base rec)))
 
 (defconst org-reading-list-mi--skip-props
