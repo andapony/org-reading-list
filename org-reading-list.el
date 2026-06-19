@@ -397,6 +397,33 @@ together with `org-reading-list-tag-vocabulary'."
                       org-current-tag-alist))
     org-reading-list-tag-vocabulary)))
 
+(defun org-reading-list--rewrite-tags (tags vocab rewrites)
+  "Rewrite TAGS to the controlled VOCAB using REWRITES.
+VOCAB is a list of allowed tag strings.  REWRITES maps a raw tag to a
+VOCAB tag, or to nil to drop it.  Return (NEW-TAGS . RECORD): NEW-TAGS is
+deduplicated, sorted, and capped at `org-reading-list-max-tags'; RECORD
+is a plist with :rewritten (alist of raw . target), :dropped-explicit,
+and :dropped-unresolved."
+  (let (kept rewritten dropped-explicit dropped-unresolved)
+    (dolist (tag tags)
+      (cond
+       ((member tag vocab) (push tag kept))
+       ((assoc tag rewrites)
+        (let ((target (cdr (assoc tag rewrites))))
+          (cond
+           ((null target) (push tag dropped-explicit))
+           ((member target vocab)
+            (push target kept)
+            (push (cons tag target) rewritten))
+           (t (push tag dropped-unresolved)))))
+       (t (push tag dropped-unresolved))))
+    (cons (seq-take (sort (delete-dups (nreverse kept)) #'string<)
+                    org-reading-list-max-tags)
+          (list :rewritten (nreverse rewritten)
+                :dropped-explicit (nreverse dropped-explicit)
+                :dropped-unresolved (nreverse dropped-unresolved)))))
+
+
 
 ;;;; Entry construction
 

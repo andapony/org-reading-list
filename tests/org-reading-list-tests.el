@@ -138,6 +138,40 @@
       (should (member "ships" v))
       (should (member "harbor" v)))))
 
+(ert-deftest org-reading-list-test-rewrite-basic ()
+  (let* ((vocab '("gold_rush" "vigilance" "waterfront"))
+         (rw '(("gold_discoveries" . "gold_rush")
+               ("vigilance_committees" . "vigilance")
+               ("history" . nil)))
+         (res (org-reading-list--rewrite-tags
+               '("gold_discoveries" "history" "vigilance_committees" "waterfront")
+               vocab rw)))
+    ;; vocab passthrough + mapped, sorted alphabetically
+    (should (equal (car res) '("gold_rush" "vigilance" "waterfront")))
+    (should (equal (plist-get (cdr res) :dropped-explicit) '("history")))
+    (should (equal (plist-get (cdr res) :rewritten)
+                   '(("gold_discoveries" . "gold_rush")
+                     ("vigilance_committees" . "vigilance"))))))
+
+(ert-deftest org-reading-list-test-rewrite-unresolved ()
+  ;; unmapped non-vocab tag, and a rewrite target not in vocab, both unresolved
+  (let* ((vocab '("gold_rush"))
+         (rw '(("bad_target" . "not_in_vocab")))
+         (res (org-reading-list--rewrite-tags '("mystery" "bad_target") vocab rw)))
+    (should (equal (car res) nil))
+    (should (equal (plist-get (cdr res) :dropped-unresolved)
+                   '("mystery" "bad_target")))))
+
+(ert-deftest org-reading-list-test-rewrite-dedup-cap ()
+  (let* ((org-reading-list-max-tags 2)
+         (vocab '("a" "b" "c"))
+         (res (org-reading-list--rewrite-tags '("c" "a" "a" "b") vocab nil)))
+    ;; dedup, sort, cap at 2 -> ("a" "b")
+    (should (equal (car res) '("a" "b")))))
+
+
+
+
 
 ;;;; Cite keys
 
