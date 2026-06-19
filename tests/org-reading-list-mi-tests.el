@@ -458,6 +458,22 @@
       (when (get-file-buffer tmp) (kill-buffer (get-file-buffer tmp)))
       (delete-file tmp))))
 
+(ert-deftest org-reading-list-mi-test-subjects-source ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD X\n:PROPERTIES:\n:ISBN: 0375505415\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "^\\* TOREAD X")
+    (cl-letf (((symbol-function 'org-reading-list-mi--entry-bibid)
+               (lambda () "b1"))
+              ((symbol-function 'org-reading-list-mi--bib-record)
+               (lambda (_)
+                 '(record nil
+                          (datafield ((tag . "650") (ind1 . " ") (ind2 . "0"))
+                                     (subfield ((code . "a")) "Sailors"))))))
+      (should (equal (org-reading-list-mi--subjects) '("sailors")))))
+  ;; The source is registered.
+  (should (memq #'org-reading-list-mi--subjects org-reading-list-subject-functions)))
 
 (provide 'org-reading-list-mi-tests)
 ;;; org-reading-list-mi-tests.el ends here

@@ -478,5 +478,17 @@ confirmation).  Point is left on the entry."
         (goto-char pos)
         (message "Added %s" (plist-get data :title))))))
 
+(defun org-reading-list-mi--subjects ()
+  "Return MILibrary 650/651 subjects for the Org entry at point, or nil.
+Find the entry in MILibrary by its :ISBN: or :TITLE:, fetch the xrecord,
+and return its normalized subject tags.  Return nil when no MILibrary
+record matches."
+  (let* ((bibid (ignore-errors (org-reading-list-mi--entry-bibid)))
+         (rec (and bibid (org-reading-list-mi--bib-record bibid))))
+    (and rec (org-reading-list--marc-subject-tags (list rec)))))
+
+(add-to-list 'org-reading-list-subject-functions
+             #'org-reading-list-mi--subjects t)
+
 (provide 'org-reading-list-mi)
 ;;; org-reading-list-mi.el ends here
