@@ -178,43 +178,15 @@
     (should (equal (cdr (assoc "FOUND" props)) "found-url"))))
 
 (ert-deftest org-reading-list-mi-test-entry-data-bridges-on-isbn ()
-  ;; With an ISBN, the OL/LoC pipeline supplies the base; MI overlays
-  ;; holdings/callno and the better abstract.
+  ;; MI MARC is the base; the ISBN bridge only fills fields MI lacks.
   (let* ((org-reading-list-file "/nonexistent/orl-test.org")
          (rec '(record nil
                        (datafield ((tag . "020") (ind1 . "") (ind2 . ""))
                                   (subfield ((code . "a")) "0375505415"))
-                       (datafield ((tag . "092") (ind1 . "") (ind2 . ""))
-                                  (subfield ((code . "a")) "973.92")
-                                  (subfield ((code . "b")) "N53"))
-                       (datafield ((tag . "520") (ind1 . "") (ind2 . ""))
-                                  (subfield ((code . "a"))
-                                            "A much longer and richer MI summary of the book."))))
-         (called-with nil))
-    (cl-letf (((symbol-function 'org-reading-list--entry-data)
-               (lambda (id &optional source)
-                 (setq called-with (list id source))
-                 (list :title "The new gilded age" :tags '("x") :isbns '("0375505415")
-                       :props (list (cons "TITLE" "The new gilded age")
-                                    (cons "ISBN" "0375505415")
-                                    (cons "ABSTRACT" "short OL note")
-                                    (cons "FOUND" source))))))
-      (let* ((data (org-reading-list-mi--entry-data rec "src"))
-             (props (plist-get data :props)))
-        ;; Bridged through the existing pipeline by ISBN.
-        (should (equal (car called-with) "ISBN:0375505415"))
-        (should (equal (cdr (assoc "HOLDINGS" props)) "MILIB"))
-        (should (equal (cdr (assoc "CALLNO" props)) "MILIB 973.92 N53"))
-        ;; MI's longer abstract wins.
-        (should (string-match-p "richer MI summary"
-                                (cdr (assoc "ABSTRACT" props))))))))
-
-(ert-deftest org-reading-list-mi-test-entry-data-bridges-on-lccn ()
-  ;; With a 010 (LCCN) but no 020 (ISBN), bridge uses LCCN:... id.
-  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
-         (rec '(record nil
-                       (datafield ((tag . "010") (ind1 . "") (ind2 . ""))
-                                  (subfield ((code . "a")) "  00059095"))
+                       (datafield ((tag . "100") (ind1 . "1") (ind2 . ""))
+                                  (subfield ((code . "a")) "Remnick, David."))
+                       (datafield ((tag . "245") (ind1 . "1") (ind2 . "4"))
+                                  (subfield ((code . "a")) "The New Gilded Age /"))
                        (datafield ((tag . "092") (ind1 . "") (ind2 . ""))
                                   (subfield ((code . "a")) "973.92")
                                   (subfield ((code . "b")) "N53"))))
@@ -222,13 +194,52 @@
     (cl-letf (((symbol-function 'org-reading-list--entry-data)
                (lambda (id &optional source)
                  (setq called-with (list id source))
-                 (list :title "The new gilded age" :tags nil :isbns nil
-                       :props (list (cons "TITLE" "The new gilded age")
-                                    (cons "FOUND" source))))))
+                 (list :title "OL Edition Title" :tags '("oltag")
+                       :isbns '("0375505415")
+                       :props (list (cons "TITLE" "OL Edition Title")
+                                    (cons "ISBN" "0375505415")
+                                    (cons "OLID" "OL123M")
+                                    (cons "DDC" "813.54")
+                                    (cons "ABSTRACT" "An OL abstract."))))))
       (let* ((data (org-reading-list-mi--entry-data rec "src"))
              (props (plist-get data :props)))
-        ;; Bridged through the existing pipeline by LCCN (spaces stripped).
+        ;; The bridge was consulted by ISBN.
+        (should (equal (car called-with) "ISBN:0375505415"))
+        ;; MI's title wins over Open Library's.
+        (should (equal (plist-get data :title) "The New Gilded Age"))
+        (should (equal (cdr (assoc "TITLE" props)) "The New Gilded Age"))
+        ;; Fields MI lacks are filled from Open Library.
+        (should (equal (cdr (assoc "OLID" props)) "OL123M"))
+        (should (equal (cdr (assoc "DDC" props)) "813.54"))
+        (should (equal (cdr (assoc "ABSTRACT" props)) "An OL abstract."))
+        ;; MI holdings/callno attached.
+        (should (equal (cdr (assoc "HOLDINGS" props)) "MILIB"))
+        (should (equal (cdr (assoc "CALLNO" props)) "MILIB 973.92 N53"))))))
+
+(ert-deftest org-reading-list-mi-test-entry-data-bridges-on-lccn ()
+  ;; With a 010 (LCCN) and no 020 (ISBN), the bridge uses an LCCN id;
+  ;; MI's title still wins and Open Library fills only the gaps.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (rec '(record nil
+                       (datafield ((tag . "010") (ind1 . "") (ind2 . ""))
+                                  (subfield ((code . "a")) "  00059095"))
+                       (datafield ((tag . "245") (ind1 . "1") (ind2 . "0"))
+                                  (subfield ((code . "a")) "MI Title /"))
+                       (datafield ((tag . "092") (ind1 . "") (ind2 . ""))
+                                  (subfield ((code . "a")) "973.92")
+                                  (subfield ((code . "b")) "N53"))))
+         (called-with nil))
+    (cl-letf (((symbol-function 'org-reading-list--entry-data)
+               (lambda (id &optional source)
+                 (setq called-with (list id source))
+                 (list :title "OL Title" :tags nil :isbns nil
+                       :props (list (cons "TITLE" "OL Title")
+                                    (cons "OLID" "OL999M"))))))
+      (let* ((data (org-reading-list-mi--entry-data rec "src"))
+             (props (plist-get data :props)))
         (should (equal (car called-with) "LCCN:00059095"))
+        (should (equal (plist-get data :title) "MI Title"))
+        (should (equal (cdr (assoc "OLID" props)) "OL999M"))
         (should (equal (cdr (assoc "HOLDINGS" props)) "MILIB"))
         (should (equal (cdr (assoc "CALLNO" props)) "MILIB 973.92 N53"))))))
 

@@ -233,27 +233,60 @@ MILIB holdings code is added, :CALLNO: gets a \"CODE callno\" pair, and
       (setq props (org-reading-list-mi--set-prop props "ABSTRACT" best)))
     (plist-put data :props props)))
 
+(defun org-reading-list-mi--enrich-empty (base extra)
+  "Fill empty fields of entry-data BASE from EXTRA; return BASE.
+BASE's own non-empty values always win.  Absent or empty props are
+filled from EXTRA, the richer abstract is chosen, a missing title or
+tags are taken from EXTRA, and EXTRA's ISBNs are merged in for
+duplicate detection."
+  (let ((bprops (plist-get base :props))
+        (eprops (plist-get extra :props)))
+    (dolist (kv eprops)
+      (when (cdr kv)
+        (let ((cell (assoc (car kv) bprops)))
+          (cond ((null cell)
+                 (setq bprops (append bprops (list (cons (car kv) (cdr kv))))))
+                ((null (cdr cell))
+                 (setcdr cell (cdr kv)))))))
+    (let ((best (org-reading-list-mi--better-abstract
+                 (cdr (assoc "ABSTRACT" bprops))
+                 (cdr (assoc "ABSTRACT" eprops)))))
+      (when best
+        (let ((cell (assoc "ABSTRACT" bprops)))
+          (if cell
+              (setcdr cell best)
+            (setq bprops (append bprops (list (cons "ABSTRACT" best))))))))
+    (setq base (plist-put base :props bprops))
+    (unless (plist-get base :title)
+      (setq base (plist-put base :title (plist-get extra :title))))
+    (unless (plist-get base :tags)
+      (setq base (plist-put base :tags (plist-get extra :tags))))
+    (plist-put base :isbns
+               (delete-dups (append (plist-get base :isbns)
+                                    (plist-get extra :isbns))))))
+
+
 (defun org-reading-list-mi--entry-data (rec &optional source)
   "Build reading-list entry data from MILibrary record REC.
-When REC carries an ISBN (020) or LCCN (010), the rich base comes from
-the existing Open Library + LoC pipeline (`org-reading-list--entry-data').
-If neither source has that identifier (an MI-only edition) or the
-lookup otherwise fails, the entry is built directly from REC's own
-MARC.  MI holdings, the local call number, and the better abstract are
-overlaid either way.  SOURCE, if non-nil, is recorded in :FOUND:."
+REC's own MARC is the authoritative base: for an MI-specific search the
+held item, edition, publisher, and call number come from MI.  When REC
+carries an ISBN (020) or LCCN (010), Open Library and the LC Catalog are
+consulted to fill fields MI's record leaves empty (e.g. :OLID:, :IA:,
+:DDC:, or a richer abstract); MI's own values always win, and a failed
+or empty lookup is ignored.  MI holdings and the local call number are
+attached.  SOURCE, if non-nil, is recorded in :FOUND:."
   (let* ((isbn (car (org-reading-list--marc-isbns rec "a")))
          (lccn (let ((v (org-reading-list--marc-field rec "010")))
                  (and v (replace-regexp-in-string " " "" v))))
-         (base (or (cond
-                    (isbn (ignore-errors
-                            (org-reading-list--entry-data
-                             (concat "ISBN:" isbn) source)))
-                    (lccn (ignore-errors
-                            (org-reading-list--entry-data
-                             (concat "LCCN:" lccn) source))))
-                   (org-reading-list--marc-entry-data
-                    (list rec) "MI" source))))
-    (org-reading-list-mi--overlay base rec)))
+         (base (org-reading-list--marc-entry-data (list rec) "MI" source))
+         (extra (and (or isbn lccn)
+                     (ignore-errors
+                       (org-reading-list--entry-data
+                        (concat (if isbn "ISBN:" "LCCN:") (or isbn lccn))
+                        source)))))
+    (org-reading-list-mi--overlay
+     (if extra (org-reading-list-mi--enrich-empty base extra) base)
+     rec)))
 
 (defconst org-reading-list-mi--skip-props
   '("ADDED" "FOUND" "CUSTOM_ID" "HOLDINGS" "CALLNO")
