@@ -31,5 +31,55 @@
     (let ((dom (org-reading-list-mi--fetch-html "https://example/")))
       (should (equal (dom-text (dom-by-id dom "x")) "hi")))))
 
+(defconst org-reading-list-mi-test--marc-text
+  "LEADER 00000cam  2200000 a 4500
+001    44669515
+003    OCoLC
+008    000718s2000    nyu           000 0 eng
+010    |a   00059095
+020    |a 0375505415|q (alk. paper)
+020    |a 9780375505416|q (alk. paper)
+035    |a (OCoLC)44669515
+082 04 |a 973.92|2 21
+092    |a 973.92|b N53
+100 1  |a Remnick, David.
+245 14 |a The new gilded age :|b the New Yorker looks at the culture of affluence /|c edited by David Remnick.
+264  1 |a New York :|b Random House,|c 2000.
+300    |a xiii, 432 pages ;|c 25 cm
+520    |a Thirty-three essays explore the culture of affluence.
+650  0 |a Popular culture|z United States.
+700 1  |a Remnick, David."
+  "Representative WebPAC labeled-MARC display text.")
+
+(ert-deftest org-reading-list-mi-test-parse-marc-control-field ()
+  (let ((rec (org-reading-list-mi--parse-marc
+              org-reading-list-mi-test--marc-text)))
+    ;; Control field 001 has no subfields; its value is the text.
+    (should (equal (org-reading-list--marc-field rec "001") "44669515"))))
+
+(ert-deftest org-reading-list-mi-test-parse-marc-subfields ()
+  (let ((rec (org-reading-list-mi--parse-marc
+              org-reading-list-mi-test--marc-text)))
+    (should (equal (org-reading-list--marc-field rec "245" "a" "b")
+                   "The new gilded age : the New Yorker looks at the culture of affluence /"))
+    (should (member "9780375505416"
+                    (org-reading-list--marc-isbns rec "a")))
+    (should (equal (org-reading-list--marc-field rec "010") "00059095"))
+    (should (equal (org-reading-list--marc-field rec "100")
+                   "Remnick, David."))
+    (should (equal (org-reading-list--marc-field rec "092" "a" "b")
+                   "973.92 N53"))))
+
+(ert-deftest org-reading-list-mi-test-parse-marc-indicators ()
+  (let* ((rec (org-reading-list-mi--parse-marc
+               org-reading-list-mi-test--marc-text))
+         (df (seq-find (lambda (d) (equal (dom-attr d 'tag) "082"))
+                       (dom-by-tag rec 'datafield))))
+    (should (equal (dom-attr df 'ind1) "0"))
+    (should (equal (dom-attr df 'ind2) "4"))))
+
+(ert-deftest org-reading-list-mi-test-parse-marc-empty ()
+  (should-not (org-reading-list-mi--parse-marc "no marc here\njust text")))
+
 (provide 'org-reading-list-mi-tests)
 ;;; org-reading-list-mi-tests.el ends here

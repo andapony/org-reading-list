@@ -71,5 +71,43 @@ for completion elsewhere."
               (libxml-parse-html-region (point-min) (point-max))))
         (kill-buffer buf)))))
 
+(defun org-reading-list-mi--parse-field (tag indicators body)
+  "Build a datafield DOM node from TAG, INDICATORS, and BODY.
+TAG is a 3-character string; INDICATORS is the two-character
+indicator string; BODY is the field text.  A BODY containing
+subfield delimiters (\"\\|c value\") becomes coded subfields;
+otherwise the whole BODY is one anonymous subfield (control fields)."
+  (let* ((ind1 (if (> (length indicators) 0)
+                   (string-trim (substring indicators 0 1)) ""))
+         (ind2 (if (> (length indicators) 1)
+                   (string-trim (substring indicators 1 2)) ""))
+         (subs (if (string-match-p "|" body)
+                   (mapcar
+                    (lambda (chunk)
+                      (let ((code (substring chunk 0 1))
+                            (val (string-trim (substring chunk 1))))
+                        `(subfield ((code . ,code)) ,val)))
+                    ;; Split on the delimiter; leading | means first part is removed.
+                    (split-string body "|" t))
+                 (list `(subfield ((code . "a")) ,(string-trim body))))))
+    `(datafield ((tag . ,tag) (ind1 . ,ind1) (ind2 . ,ind2)) ,@subs)))
+
+(defun org-reading-list-mi--parse-marc (text)
+  "Parse WebPAC labeled-MARC TEXT into a `record' DOM node, or nil.
+Each line beginning with a 3-digit tag becomes a datafield in the
+same shape the Library of Congress MARCXML helpers consume, so the
+existing extractors in org-reading-list.el work on the result.
+Return nil when TEXT contains no tagged fields."
+  (let (fields)
+    (dolist (line (split-string text "[\n\r]+" t))
+      (when (string-match
+             "\\`\\([0-9][0-9][0-9]\\) ?\\(..\\)? ?\\(.*\\)\\'" line)
+        (let ((tag (match-string 1 line))
+              (ind (or (match-string 2 line) ""))
+              (body (or (match-string 3 line) "")))
+          (push (org-reading-list-mi--parse-field tag ind body) fields))))
+    (when fields
+      `(record nil ,@(nreverse fields)))))
+
 (provide 'org-reading-list-mi)
 ;;; org-reading-list-mi.el ends here
