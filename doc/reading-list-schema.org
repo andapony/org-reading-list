@@ -343,6 +343,10 @@ needed; keep them short, uppercase, and stable.
 
 =M-x org-reading-list-set-holdings= (in org-reading-list.el) sets the
 property with completion over the known codes.
+=M-x org-reading-list-mi-search= and =M-x org-reading-list-mi-enrich=
+(in org-reading-list-mi.el) populate =:HOLDINGS: MILIB= and
+=:CALLNO: MILIB …= automatically from the MI catalog's MARC (fields
+092/099/090).
 
 Checking availability is a per-catalog lookup. An Org link
 abbreviation makes the SFPL check one click from any entry:

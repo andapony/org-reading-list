@@ -267,9 +267,5 @@
       (should (string-match-p "essays"
                               (or (org-entry-get nil "ABSTRACT") ""))))))
 
-
-
-
-
 (provide 'org-reading-list-mi-tests)
 ;;; org-reading-list-mi-tests.el ends here

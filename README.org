@@ -248,6 +248,25 @@ when the rewrite map is set this way.
   inferring tags for entries below the minimum.  Live LLM inference via
   gptel is planned and will plug in here.
 
+** MILibrary search
+
+Load the optional companion file to enable direct search of the
+Mechanics' Institute Library catalog (milibrary.org):
+
+#+begin_src emacs-lisp
+(require 'org-reading-list-mi)
+#+end_src
+
+- =M-x org-reading-list-mi-search=: searches milibrary.org by title
+  (a prefix argument lets you choose author, keyword, or ISBN instead),
+  presents matching results, and either captures a new entry or updates
+  an existing one — adding =MILIB= to =:HOLDINGS:= and filling
+  =:CALLNO: MILIB …= from the MI catalog's MARC record.
+- =M-x org-reading-list-mi-enrich=: enriches the Org entry at point
+  from its MILibrary record: attaches =MILIB= holdings and call number,
+  fills empty fields from MARC, and offers to refresh any differing
+  fields.
+
 * Etiquette and caveats
 
 - The Library of Congress asks automated clients of lx2.loc.gov to

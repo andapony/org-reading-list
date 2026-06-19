@@ -349,7 +349,5 @@ confirmation).  Point is left on the entry."
         (goto-char pos)
         (message "Added %s" (plist-get data :title))))))
 
-
-
 (provide 'org-reading-list-mi)
 ;;; org-reading-list-mi.el ends here
