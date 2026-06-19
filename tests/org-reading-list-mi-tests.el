@@ -425,13 +425,11 @@
       (should (string-match-p "essays"
                               (or (org-entry-get nil "ABSTRACT") ""))))))
 
-(ert-deftest org-reading-list-mi-test-search-preens-on-capture ()
-  ;; A newly captured entry's tags are preened to the file's controlled
-  ;; vocabulary when `org-reading-list-preen-on-capture' is enabled.
-  (let* ((tmp (make-temp-file "orl-mi-preen" nil ".org"))
+(ert-deftest org-reading-list-mi-test-search-writes-subjects-and-projects ()
+  ;; mi-search stores the full :SUBJECTS: and projects the heading tags.
+  (let* ((tmp (make-temp-file "orl-mi-subj" nil ".org"))
          (org-reading-list-file tmp)
          (org-reading-list-headline "Books")
-         (org-reading-list-preen-on-capture t)
          (org-reading-list-tag-rewrites
           '(("gold_discoveries" . "gold_rush") ("history" . nil))))
     (unwind-protect
@@ -448,15 +446,15 @@
                     ((symbol-function 'org-reading-list-mi--entry-data)
                      (lambda (&rest _)
                        (list :title "Gold Book"
+                             :subjects '("gold_discoveries" "history")
                              :tags '("gold_discoveries" "history")
                              :props '(("TITLE" . "Gold Book") ("BTYPE" . "book"))))))
             (org-reading-list-mi-search))
           (with-current-buffer (find-file-noselect tmp)
             (goto-char (point-min))
-            ;; Filed under Books with tags preened to the vocabulary.
             (should (re-search-forward "^\\*\\* TOREAD Gold Book.*:gold_rush:$" nil t))
             (goto-char (point-min))
-            (should-not (re-search-forward "gold_discoveries\\|:history:" nil t))))
+            (should (re-search-forward "^:SUBJECTS: gold_discoveries; history$" nil t))))
       (when (get-file-buffer tmp) (kill-buffer (get-file-buffer tmp)))
       (delete-file tmp))))
 

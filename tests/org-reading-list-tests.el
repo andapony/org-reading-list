@@ -237,16 +237,54 @@
     (let ((org-reading-list-tag-rewrites
            '(("gold_discoveries" . "gold_rush") ("history" . nil)))
           (data (list :title "X" :props nil
-                      :tags '("gold_discoveries" "history"))))
-      (should (equal (plist-get (org-reading-list--preen-data data) :tags)
+                      :subjects '("gold_discoveries" "history"))))
+      (should (equal (plist-get (org-reading-list--derive-tags data) :tags)
                      '("gold_rush"))))))
 
 (ert-deftest org-reading-list-test-preen-data-no-vocab ()
   (with-temp-buffer
-    (org-mode)                          ; no #+TAGS: -> empty vocabulary
-    (let ((data (list :title "X" :props nil :tags '("history"))))
-      (should (equal (plist-get (org-reading-list--preen-data data) :tags)
+    (org-mode)
+    (let ((data (list :title "X" :props nil :subjects '("history"))))
+      (should (equal (plist-get (org-reading-list--derive-tags data) :tags)
                      '("history"))))))
+
+(ert-deftest org-reading-list-test-derive-tags-projects-and-materializes ()
+  (with-temp-buffer
+    (insert "#+TAGS: gold_rush\n")
+    (org-mode)
+    (org-set-regexps-and-options)
+    (let ((org-reading-list-tag-rewrites
+           '(("gold_discoveries" . "gold_rush") ("history" . nil)))
+          (data (list :title "X" :props nil
+                      :subjects '("gold_discoveries" "history"))))
+      (let* ((out (org-reading-list--derive-tags data))
+             (props (plist-get out :props)))
+        ;; Tags are the projection; SUBJECTS property holds the full source.
+        (should (equal (plist-get out :tags) '("gold_rush")))
+        (should (equal (cdr (assoc "SUBJECTS" props))
+                       "gold_discoveries; history"))))))
+
+(ert-deftest org-reading-list-test-derive-tags-empty-vocab-passthrough ()
+  (with-temp-buffer
+    (org-mode)                          ; no #+TAGS: -> empty vocabulary
+    (let ((data (list :title "X" :props nil :subjects '("a" "b"))))
+      (should (equal (plist-get (org-reading-list--derive-tags data) :tags)
+                     '("a" "b"))))))
+
+(ert-deftest org-reading-list-test-derive-tags-all-dropped-keeps-subjects ()
+  (with-temp-buffer
+    (insert "#+TAGS: only_this\n")
+    (org-mode)
+    (org-set-regexps-and-options)
+    (let ((data (list :title "X" :props nil :subjects '("sailors" "whaling"))))
+      (let* ((out (org-reading-list--derive-tags data))
+             (props (plist-get out :props)))
+        (should (null (plist-get out :tags)))          ; all unresolved -> dropped
+        (should (equal (cdr (assoc "SUBJECTS" props))  ; source preserved
+                       "sailors; whaling"))))))
+
+
+
 
 ;;;; Cite keys
 

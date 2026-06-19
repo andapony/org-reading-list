@@ -383,12 +383,6 @@ receives one plist argument with keys :heading, :title, :abstract,
 add; returned tags outside the vocabulary are discarded."
   :type '(choice (const :tag "None" nil) function))
 
-(defcustom org-reading-list-preen-on-capture nil
-  "When non-nil, preen harvested tags against the target file at capture.
-`org-reading-list-insert' and `org-reading-list-capture' rewrite the new
-entry's tags via `org-reading-list-tag-rewrites' and the target file's
-vocabulary before filing.  Off by default."
-  :type 'boolean)
 
 (defun org-reading-list--tag-vocabulary ()
   "Return the controlled tag vocabulary for the current buffer.
@@ -504,27 +498,33 @@ tags and return them."
     (org-set-tags new)
     new))
 
-(defun org-reading-list--preen-data (data)
-  "Return DATA with its :tags preened against the current buffer's vocabulary.
-DATA is an `org-reading-list--entry-data' plist.  The current buffer
-must be the target reading-list buffer (its #+TAGS: and file-local
-`org-reading-list-tag-rewrites' supply the vocabulary and map).  When the
-vocabulary is empty, return DATA unchanged.  When
-`org-reading-list-tag-infer-function' is set and the rewritten set is
-below `org-reading-list-tag-min', add the tags it returns."
-  (let ((vocab (org-reading-list--tag-vocabulary)))
-    (if (null vocab)
-        data
-      (let* ((new (car (org-reading-list--rewrite-tags
-                        (plist-get data :tags) vocab
-                        org-reading-list-tag-rewrites)))
-             (props (plist-get data :props))
-             (ctx (list :heading (plist-get data :title)
-                        :title (plist-get data :title)
-                        :abstract (cdr (assoc "ABSTRACT" props))
-                        :body nil :tags new :vocabulary vocab)))
-        (plist-put (copy-sequence data) :tags
-                   (org-reading-list--infer-merge new vocab ctx))))))
+(defun org-reading-list--derive-tags (data)
+  "Materialize :SUBJECTS: and project the heading tags for DATA.
+Run with the target reading-list buffer current.  Add a \"SUBJECTS\"
+property to DATA's :props from its full :subjects set, and set :tags to
+the projection of those subjects through the buffer's #+TAGS: vocabulary
+and `org-reading-list-tag-rewrites' (capped at `org-reading-list-max-tags',
+or the raw subjects when there is no vocabulary).  Return DATA."
+  (let* ((subjects (plist-get data :subjects))
+         (vocab (org-reading-list--tag-vocabulary))
+         (props (plist-get data :props))
+         (tags (if (null vocab)
+                   (seq-take subjects org-reading-list-max-tags)
+                 (let* ((new (car (org-reading-list--rewrite-tags
+                                   subjects vocab org-reading-list-tag-rewrites)))
+                        (ctx (list :heading (plist-get data :title)
+                                   :title (plist-get data :title)
+                                   :abstract (cdr (assoc "ABSTRACT" props))
+                                   :body nil :tags new :vocabulary vocab)))
+                   (org-reading-list--infer-merge new vocab ctx)))))
+    (when subjects
+      (let ((cell (assoc "SUBJECTS" props))
+            (joined (string-join subjects "; ")))
+        (if cell
+            (setcdr cell joined)
+          (setq props (append props (list (cons "SUBJECTS" joined)))))))
+    (setq data (plist-put (copy-sequence data) :props props))
+    (plist-put data :tags tags)))
 
 ;;;###autoload
 (defun org-reading-list-preen-tags (&optional all)
@@ -1361,9 +1361,7 @@ instead of inserting."
                     (widen)
                     (org-reading-list--insert-under-headline
                      (org-reading-list--entry-string
-                      (if org-reading-list-preen-on-capture
-                          (org-reading-list--preen-data data)
-                        data))
+                      (org-reading-list--derive-tags data))
                      org-reading-list-headline))))))
     (pop-to-buffer buf)
     (widen)
@@ -1395,10 +1393,8 @@ you are asked first; declining aborts the capture."
             (signal 'org-reading-list-duplicate
                     (list (plist-get (cdr dup) :heading))))
           (org-reading-list--entry-string
-           (if org-reading-list-preen-on-capture
-               (with-current-buffer (find-file-noselect org-reading-list-file)
-                 (org-reading-list--preen-data data))
-             data)))
+           (with-current-buffer (find-file-noselect org-reading-list-file)
+             (org-reading-list--derive-tags data))))
       (org-reading-list-duplicate
        (user-error "Already in list: %s" (cadr err)))
       (error
