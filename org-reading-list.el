@@ -337,6 +337,56 @@ rejects overlong headings."
                 (delq nil (mapcar #'org-reading-list--tagify names)))))
     (seq-take tags org-reading-list-max-tags)))
 
+;;;; Controlled-vocabulary tags
+
+(defun org-reading-list--tag-rewrites-safe-p (value)
+  "Return non-nil if VALUE is a valid `org-reading-list-tag-rewrites'.
+That is an alist whose keys are strings and whose values are strings or nil."
+  (and (listp value)
+       (seq-every-p
+        (lambda (e)
+          (and (consp e)
+               (stringp (car e))
+               (or (null (cdr e)) (stringp (cdr e)))))
+        value)))
+
+(defcustom org-reading-list-tag-vocabulary nil
+  "Global controlled tag vocabulary, merged with the buffer's #+TAGS:.
+A list of allowed tag strings.  Normally nil: define the vocabulary
+per file with a #+TAGS: line instead."
+  :type '(repeat string))
+
+(defcustom org-reading-list-tag-rewrites nil
+  "Alist rewriting raw subject tags to the controlled vocabulary.
+Each element maps a raw tag string to a vocabulary tag string, or to nil
+to drop the raw tag.  Set per file via file-local variables or
+`.dir-locals.el'.  See `org-reading-list-preen-tags'."
+  :type '(alist :key-type string :value-type (choice string (const nil))))
+(put 'org-reading-list-tag-rewrites 'safe-local-variable
+     #'org-reading-list--tag-rewrites-safe-p)
+
+(defcustom org-reading-list-tag-min 1
+  "Minimum vocabulary tags an entry should carry after preening.
+Entries below this are flagged by `org-reading-list-lint-tags' and, when
+`org-reading-list-tag-infer-function' is set, passed to it."
+  :type 'natnum)
+
+(defcustom org-reading-list-tag-infer-function nil
+  "Function to infer extra tags for thin entries, or nil.
+Called by `org-reading-list-preen-tags' only when an entry has fewer
+than `org-reading-list-tag-min' vocabulary tags after rewriting.  It
+receives one plist argument with keys :heading, :title, :abstract,
+:body, :tags, and :vocabulary, and returns a list of vocabulary tags to
+add; returned tags outside the vocabulary are discarded."
+  :type '(choice (const :tag "None" nil) function))
+
+(defcustom org-reading-list-preen-on-capture nil
+  "When non-nil, preen harvested tags against the target file at capture.
+`org-reading-list-insert' and `org-reading-list-capture' rewrite the new
+entry's tags via `org-reading-list-tag-rewrites' and the target file's
+vocabulary before filing.  Off by default."
+  :type 'boolean)
+
 ;;;; Entry construction
 
 (defun org-reading-list--ol-entry-data (rec bibkey source)

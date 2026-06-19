@@ -106,6 +106,16 @@
 (ert-deftest org-reading-list-test-tagify-overlong-nil ()
   (should-not (org-reading-list--tagify (make-string 60 ?x))))
 
+;;;; Controlled-vocabulary tags
+
+(ert-deftest org-reading-list-test-rewrites-safe-p ()
+  (should (org-reading-list--tag-rewrites-safe-p
+           '(("gold_discoveries" . "gold_rush") ("history" . nil))))
+  (should (org-reading-list--tag-rewrites-safe-p nil))
+  (should-not (org-reading-list--tag-rewrites-safe-p '(("ok" . 5))))
+  (should-not (org-reading-list--tag-rewrites-safe-p '((1 . "x"))))
+  (should-not (org-reading-list--tag-rewrites-safe-p "nope")))
+
 ;;;; Cite keys
 
 (ert-deftest org-reading-list-test-citekey-base ()
