@@ -159,5 +159,58 @@ content, the longer string wins."
           (a a)
           (b b))))
 
+(defun org-reading-list-mi--callno (rec)
+  "Return the MILibrary local call number from REC, or nil.
+Reads MARC 092 (Dewey-based local class), falling back to 099 or 090,
+joining the call-number subfields."
+  (or (org-reading-list--marc-field rec "092" "a" "b")
+      (org-reading-list--marc-field rec "099" "a" "f")
+      (org-reading-list--marc-field rec "090" "a" "b")))
+
+(defun org-reading-list-mi--set-prop (props key value)
+  "Return PROPS with KEY set to VALUE (added if absent, replaced if present)."
+  (let ((cell (assoc key props)))
+    (if cell
+        (progn (setcdr cell value) props)
+      (append props (list (cons key value))))))
+
+(defun org-reading-list-mi--overlay (data rec)
+  "Attach MI holdings, call number, and the better abstract to DATA.
+DATA is an entry-data plist; REC is the MILibrary record DOM.  The
+MILIB holdings code is added, :CALLNO: gets a \"CODE callno\" pair, and
+:ABSTRACT: is the more informative of DATA's and REC's 520 summary."
+  (let* ((props (plist-get data :props))
+         (code org-reading-list-mi-holdings-code)
+         (callno (org-reading-list-mi--callno rec))
+         (mi-abstract (org-reading-list--marc-field rec "520" "a" "b"))
+         (best (org-reading-list-mi--better-abstract
+                (cdr (assoc "ABSTRACT" props)) mi-abstract)))
+    (setq props (org-reading-list-mi--set-prop props "HOLDINGS" code))
+    (when callno
+      (setq props (org-reading-list-mi--set-prop
+                   props "CALLNO" (format "%s %s" code callno))))
+    (when best
+      (setq props (org-reading-list-mi--set-prop props "ABSTRACT" best)))
+    (plist-put data :props props)))
+
+(defun org-reading-list-mi--entry-data (rec &optional source)
+  "Build reading-list entry data from MILibrary record REC.
+When REC carries an ISBN (020) or LCCN (010), the rich base comes from
+the existing Open Library + LoC pipeline (`org-reading-list--entry-data');
+otherwise the entry is built directly from REC's MARC.  MI holdings, the
+local call number, and the better abstract are overlaid either way.
+SOURCE, if non-nil, is recorded in :FOUND:."
+  (let* ((isbn (car (org-reading-list--marc-isbns rec "a")))
+         (lccn (let ((v (org-reading-list--marc-field rec "010")))
+                 (and v (replace-regexp-in-string " " "" v))))
+         (base (cond
+                (isbn (org-reading-list--entry-data
+                       (concat "ISBN:" isbn) source))
+                (lccn (org-reading-list--entry-data
+                       (concat "LCCN:" lccn) source))
+                (t (org-reading-list--marc-entry-data
+                    (list rec) "MI" source)))))
+    (org-reading-list-mi--overlay base rec)))
+
 (provide 'org-reading-list-mi)
 ;;; org-reading-list-mi.el ends here

@@ -137,5 +137,63 @@
   (should (equal (org-reading-list-mi--better-abstract "much longer one" "short")
                  "much longer one")))
 
+(ert-deftest org-reading-list-mi-test-callno ()
+  (let ((rec (org-reading-list-mi--parse-marc
+              org-reading-list-mi-test--marc-text)))
+    (should (equal (org-reading-list-mi--callno rec) "973.92 N53"))))
+
+(ert-deftest org-reading-list-mi-test-entry-data-mi-only ()
+  ;; No ISBN/LCCN -> build straight from MI MARC; holdings + callno added.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (rec '(record nil
+                       (datafield ((tag . "092") (ind1 . "") (ind2 . ""))
+                                  (subfield ((code . "a")) "979.461")
+                                  (subfield ((code . "b")) "L88"))
+                       (datafield ((tag . "100") (ind1 . "1") (ind2 . ""))
+                                  (subfield ((code . "a")) "Lewis, Oscar."))
+                       (datafield ((tag . "245") (ind1 . "1") (ind2 . "0"))
+                                  (subfield ((code . "a")) "San Francisco /"))
+                       (datafield ((tag . "520") (ind1 . "") (ind2 . ""))
+                                  (subfield ((code . "a")) "A local history."))))
+         (data (org-reading-list-mi--entry-data rec "found-url"))
+         (props (plist-get data :props)))
+    (should (equal (plist-get data :title) "San Francisco"))
+    (should (equal (cdr (assoc "HOLDINGS" props)) "MILIB"))
+    (should (equal (cdr (assoc "CALLNO" props)) "MILIB 979.461 L88"))
+    (should (equal (cdr (assoc "ABSTRACT" props)) "A local history."))
+    (should (equal (cdr (assoc "FOUND" props)) "found-url"))))
+
+(ert-deftest org-reading-list-mi-test-entry-data-bridges-on-isbn ()
+  ;; With an ISBN, the OL/LoC pipeline supplies the base; MI overlays
+  ;; holdings/callno and the better abstract.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (rec '(record nil
+                       (datafield ((tag . "020") (ind1 . "") (ind2 . ""))
+                                  (subfield ((code . "a")) "0375505415"))
+                       (datafield ((tag . "092") (ind1 . "") (ind2 . ""))
+                                  (subfield ((code . "a")) "973.92")
+                                  (subfield ((code . "b")) "N53"))
+                       (datafield ((tag . "520") (ind1 . "") (ind2 . ""))
+                                  (subfield ((code . "a"))
+                                            "A much longer and richer MI summary of the book."))))
+         (called-with nil))
+    (cl-letf (((symbol-function 'org-reading-list--entry-data)
+               (lambda (id &optional source)
+                 (setq called-with (list id source))
+                 (list :title "The new gilded age" :tags '("x") :isbns '("0375505415")
+                       :props (list (cons "TITLE" "The new gilded age")
+                                    (cons "ISBN" "0375505415")
+                                    (cons "ABSTRACT" "short OL note")
+                                    (cons "FOUND" source))))))
+      (let* ((data (org-reading-list-mi--entry-data rec "src"))
+             (props (plist-get data :props)))
+        ;; Bridged through the existing pipeline by ISBN.
+        (should (equal (car called-with) "ISBN:0375505415"))
+        (should (equal (cdr (assoc "HOLDINGS" props)) "MILIB"))
+        (should (equal (cdr (assoc "CALLNO" props)) "MILIB 973.92 N53"))
+        ;; MI's longer abstract wins.
+        (should (string-match-p "richer MI summary"
+                                (cdr (assoc "ABSTRACT" props))))))))
+
 (provide 'org-reading-list-mi-tests)
 ;;; org-reading-list-mi-tests.el ends here
