@@ -173,8 +173,8 @@
   "Set up a temp reading-list buffer with two book entries, then run BODY."
   `(with-temp-buffer
      (insert "#+TAGS: gold_rush vigilance\n* Books\n"
-             "** TOREAD A :gold_discoveries:history:\n:PROPERTIES:\n:BTYPE: book\n:END:\n"
-             "** TOREAD B :unmapped_thing:\n:PROPERTIES:\n:BTYPE: book\n:END:\n")
+             "** TOREAD A\n:PROPERTIES:\n:BTYPE: book\n:SUBJECTS: gold_discoveries; history\n:END:\n"
+             "** TOREAD B\n:PROPERTIES:\n:BTYPE: book\n:SUBJECTS: unmapped_thing\n:END:\n")
      (org-mode)
      (org-set-regexps-and-options)
      (let ((org-reading-list-tag-rewrites
@@ -209,7 +209,7 @@
      (org-reading-list-preen-tags t))
    (goto-char (point-min))
    (re-search-forward "^\\*\\* TOREAD A")
-   (should (equal (org-get-tags nil t) '("gold_discoveries" "history")))
+   (should (equal (org-get-tags nil t) nil))
    ;; Accept: both entries preen.
    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
      (org-reading-list-preen-tags t))
@@ -1240,6 +1240,33 @@ BODY may reference `file', the temp file's path."
              ((symbol-function 'read-string) (lambda (_p &rest _) "x")))
      (should (string-prefix-p "* TOREAD One: A Tale"
                               (org-reading-list-capture))))))
+
+(ert-deftest org-reading-list-test-preen-entry-from-subjects ()
+  (with-temp-buffer
+    (insert "#+TAGS: gold_rush\n"
+            "* TOREAD X\n:PROPERTIES:\n:SUBJECTS: gold_discoveries; history\n:END:\n")
+    (org-mode)
+    (org-set-regexps-and-options)
+    (let ((org-reading-list-tag-rewrites
+           '(("gold_discoveries" . "gold_rush") ("history" . nil))))
+      (goto-char (point-min))
+      (re-search-forward "^\\* TOREAD X")
+      (org-reading-list--preen-entry (org-reading-list--tag-vocabulary)
+                                     org-reading-list-tag-rewrites)
+      (should (equal (org-get-tags nil t) '("gold_rush"))))))
+
+(ert-deftest org-reading-list-test-preen-entry-no-subjects ()
+  (with-temp-buffer
+    (insert "#+TAGS: gold_rush\n* TOREAD X\n:PROPERTIES:\n:TITLE: X\n:END:\n")
+    (org-mode)
+    (org-set-regexps-and-options)
+    (goto-char (point-min))
+    (re-search-forward "^\\* TOREAD X")
+    (should (eq (org-reading-list--preen-entry
+                 (org-reading-list--tag-vocabulary) nil)
+                'no-subjects))))
+
+
 
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here

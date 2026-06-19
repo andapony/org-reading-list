@@ -425,18 +425,20 @@ and :dropped-unresolved."
   "Collect tag-preen diagnostics for book entries in the current buffer.
 Return a list of plists, one per heading with a non-empty :BTYPE:, with
 keys :heading, :current, :new, :record (from
-`org-reading-list--rewrite-tags'), and :thin (non-nil when the new tag
-count is below `org-reading-list-tag-min')."
+`org-reading-list--rewrite-tags'), :thin (non-nil when the new tag
+count is below `org-reading-list-tag-min'), and :no-subjects (non-nil
+when the entry has no :SUBJECTS: property)."
   (let ((vocab (org-reading-list--tag-vocabulary))
         (rewrites org-reading-list-tag-rewrites)
         results)
     (org-map-entries
      (lambda ()
-       (let* ((cur (org-get-tags nil t))
-              (res (org-reading-list--rewrite-tags cur vocab rewrites)))
+       (let* ((cur (org-reading-list--entry-subjects))
+              (res (org-reading-list--rewrite-tags (or cur nil) vocab rewrites)))
          (push (list :heading (org-get-heading t t t t)
                      :current cur :new (car res) :record (cdr res)
-                     :thin (< (length (car res)) org-reading-list-tag-min))
+                     :thin (< (length (car res)) org-reading-list-tag-min)
+                     :no-subjects (null cur))
                results)))
      "BTYPE={.}")
     (nreverse results)))
@@ -455,11 +457,18 @@ list, or NEW unchanged."
                   org-reading-list-max-tags))
     new))
 
+(defun org-reading-list--entry-subjects ()
+  "Return the entry at point's :SUBJECTS: as a token list, or nil."
+  (let ((v (org-entry-get nil "SUBJECTS")))
+    (and v (split-string v "[;[:space:]]+" t))))
+
+
 ;;;###autoload
 (defun org-reading-list-lint-tags ()
   "Report how `org-reading-list-preen-tags' would change tags in the buffer.
 List, per book entry, the rewrites and drops that would apply and flag
-entries left below `org-reading-list-tag-min'.  Modify nothing."
+entries left below `org-reading-list-tag-min' or without a :SUBJECTS:
+property.  Modify nothing."
   (interactive)
   (let ((data (org-reading-list--lint-collect))
         (buf (get-buffer-create "*org-reading-list-tags*")))
@@ -471,32 +480,37 @@ entries left below `org-reading-list-tag-min'.  Modify nothing."
           (let ((rec (plist-get e :record)))
             (insert (format "%s%s\n" (plist-get e :heading)
                             (if (plist-get e :thin) "   [THIN]" ""))
-                    (format "  %s -> %s\n"
-                            (or (plist-get e :current) "(none)")
-                            (or (plist-get e :new) "(none)"))
-                    (if (plist-get rec :dropped-unresolved)
-                        (format "  unresolved (need a rewrite or vocab entry): %s\n"
-                                (plist-get rec :dropped-unresolved))
-                      ""))))
+                    (if (plist-get e :no-subjects)
+                        "  (no :SUBJECTS: — run org-reading-list-fetch-subjects)\n"
+                      (concat
+                       (format "  %s -> %s\n"
+                               (or (plist-get e :current) "(none)")
+                               (or (plist-get e :new) "(none)"))
+                       (if (plist-get rec :dropped-unresolved)
+                           (format "  unresolved (need a rewrite or vocab entry): %s\n"
+                                   (plist-get rec :dropped-unresolved))
+                         ""))))))
         (goto-char (point-min))))
     (display-buffer buf)))
 
 (defun org-reading-list--preen-entry (vocab rewrites)
-  "Preen the tags of the Org entry at point against VOCAB and REWRITES.
-Rewrite the tags, then add inferred tags via `org-reading-list--infer-merge'
-when the result is below `org-reading-list-tag-min'.  Set the entry's
-tags and return them."
-  (let* ((new (car (org-reading-list--rewrite-tags
-                    (org-get-tags nil t) vocab rewrites)))
-         (ctx (list :heading (org-get-heading t t t t)
-                    :title (org-entry-get nil "TITLE")
-                    :abstract (org-entry-get nil "ABSTRACT")
-                    :body (org-get-entry)
-                    :tags new
-                    :vocabulary vocab)))
-    (setq new (org-reading-list--infer-merge new vocab ctx))
-    (org-set-tags new)
-    new))
+  "Re-derive the Org tags of the entry at point from its :SUBJECTS:.
+Project the subjects through VOCAB and REWRITES, add inferred tags via
+`org-reading-list--infer-merge' when below `org-reading-list-tag-min', set
+the entry's tags, and return them.  Return the symbol `no-subjects',
+changing nothing, when the entry has no :SUBJECTS: property."
+  (let ((subjects (org-reading-list--entry-subjects)))
+    (if (null subjects)
+        'no-subjects
+      (let* ((new (car (org-reading-list--rewrite-tags subjects vocab rewrites)))
+             (ctx (list :heading (org-get-heading t t t t)
+                        :title (org-entry-get nil "TITLE")
+                        :abstract (org-entry-get nil "ABSTRACT")
+                        :body (org-get-entry)
+                        :tags new :vocabulary vocab)))
+        (setq new (org-reading-list--infer-merge new vocab ctx))
+        (org-set-tags new)
+        new))))
 
 (defun org-reading-list--derive-tags (data)
   "Materialize :SUBJECTS: and project the heading tags for DATA.
@@ -529,9 +543,11 @@ or the raw subjects when there is no vocabulary).  Return DATA."
 ;;;###autoload
 (defun org-reading-list-preen-tags (&optional all)
   "Preen the tags of the Org entry at point to the controlled vocabulary.
-Rewrite the tags via `org-reading-list-tag-rewrites' against the buffer's
-vocabulary (its #+TAGS:).  With a prefix argument ALL, preen every book
-entry (those with a non-empty :BTYPE:) in the buffer, after confirmation.
+Re-derive the entry's Org tags from its :SUBJECTS: property via
+`org-reading-list-tag-rewrites' against the buffer's vocabulary (its
+#+TAGS:).  With a prefix argument ALL, preen every book entry (those
+with a non-empty :BTYPE:) in the buffer, after confirmation.  Entries
+without a :SUBJECTS: property are skipped and reported.
 See `org-reading-list-lint-tags' for a non-destructive preview."
   (interactive "P")
   (let ((vocab (org-reading-list--tag-vocabulary))
@@ -540,16 +556,21 @@ See `org-reading-list-lint-tags' for a non-destructive preview."
      ((null vocab)
       (message "No tag vocabulary: set #+TAGS: or org-reading-list-tag-vocabulary"))
      (all
-      (let ((n (length (org-map-entries #'ignore "BTYPE={.}"))))
+      (let ((n (length (org-map-entries #'ignore "BTYPE={.}")))
+            (skipped 0))
         (when (yes-or-no-p (format "Preen tags of %d entries? " n))
           (org-map-entries
-           (lambda () (org-reading-list--preen-entry vocab rewrites))
+           (lambda ()
+             (when (eq (org-reading-list--preen-entry vocab rewrites) 'no-subjects)
+               (setq skipped (1+ skipped))))
            "BTYPE={.}")
-          (message "Preened %d entries" n))))
+          (message "Preened %d, skipped %d (no :SUBJECTS:)" (- n skipped) skipped))))
      (t
-      (org-reading-list--preen-entry vocab rewrites)
-      (message "Preened: %s"
-               (or (string-join (org-get-tags nil t) " ") "none"))))))
+      (let ((result (org-reading-list--preen-entry vocab rewrites)))
+        (if (eq result 'no-subjects)
+            (message "This entry has no :SUBJECTS: — run org-reading-list-fetch-subjects")
+          (message "Preened: %s"
+                   (or (string-join (org-get-tags nil t) " ") "none"))))))))
 
 ;;;; Entry construction
 
