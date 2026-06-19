@@ -195,6 +195,30 @@
         (should (string-match-p "richer MI summary"
                                 (cdr (assoc "ABSTRACT" props))))))))
 
+(ert-deftest org-reading-list-mi-test-entry-data-bridges-on-lccn ()
+  ;; With a 010 (LCCN) but no 020 (ISBN), bridge uses LCCN:... id.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (rec '(record nil
+                       (datafield ((tag . "010") (ind1 . "") (ind2 . ""))
+                                  (subfield ((code . "a")) "  00059095"))
+                       (datafield ((tag . "092") (ind1 . "") (ind2 . ""))
+                                  (subfield ((code . "a")) "973.92")
+                                  (subfield ((code . "b")) "N53"))))
+         (called-with nil))
+    (cl-letf (((symbol-function 'org-reading-list--entry-data)
+               (lambda (id &optional source)
+                 (setq called-with (list id source))
+                 (list :title "The new gilded age" :tags nil :isbns nil
+                       :props (list (cons "TITLE" "The new gilded age")
+                                    (cons "FOUND" source))))))
+      (let* ((data (org-reading-list-mi--entry-data rec "src"))
+             (props (plist-get data :props)))
+        ;; Bridged through the existing pipeline by LCCN (spaces stripped).
+        (should (equal (car called-with) "LCCN:00059095"))
+        (should (equal (cdr (assoc "HOLDINGS" props)) "MILIB"))
+        (should (equal (cdr (assoc "CALLNO" props)) "MILIB 973.92 N53"))))))
+
+
 (ert-deftest org-reading-list-mi-test-apply-update-enrich-empty ()
   (with-temp-buffer
     (org-mode)
@@ -211,6 +235,53 @@
       (should (equal (org-entry-get nil "ISBN") "0375505415"))
       (should (string-match-p "MILIB" (org-entry-get nil "HOLDINGS")))
       (should (equal (org-entry-get nil "CALLNO") "MILIB 973.92 N53")))))
+
+(ert-deftest org-reading-list-mi-test-callno-merge-appends-new-code ()
+  ;; Entry already has SFPL; applying MILIB appends it.
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD A Book\n:PROPERTIES:\n:CALLNO: SFPL 979.461 L88\n:END:\n")
+    (goto-char (point-min))
+    (let ((data (list :title "A Book"
+                      :props '(("HOLDINGS" . "MILIB")
+                               ("CALLNO" . "MILIB 222 A1")))))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+        (org-reading-list-mi--apply-update data))
+      (let ((callno (org-entry-get nil "CALLNO")))
+        (should (string-match-p "SFPL 979.461 L88" callno))
+        (should (string-match-p "MILIB 222 A1" callno))))))
+
+(ert-deftest org-reading-list-mi-test-callno-merge-replaces-same-code ()
+  ;; Entry has MILIB old and SFPL; applying MILIB new replaces MILIB in place.
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD A Book\n:PROPERTIES:\n:CALLNO: MILIB old 1; SFPL keep 2\n:END:\n")
+    (goto-char (point-min))
+    (let ((data (list :title "A Book"
+                      :props '(("HOLDINGS" . "MILIB")
+                               ("CALLNO" . "MILIB new 9")))))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+        (org-reading-list-mi--apply-update data))
+      (let ((callno (org-entry-get nil "CALLNO")))
+        (should (string-match-p "MILIB new 9" callno))
+        (should (string-match-p "SFPL keep 2" callno))
+        (should-not (string-match-p "MILIB old 1" callno))))))
+
+(ert-deftest org-reading-list-mi-test-callno-merge-no-existing ()
+  ;; Entry has no CALLNO; result is exactly the incoming pair.
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD A Book\n:PROPERTIES:\n:TITLE: A Book\n:END:\n")
+    (goto-char (point-min))
+    (let ((data (list :title "A Book"
+                      :props '(("HOLDINGS" . "MILIB")
+                               ("CALLNO" . "MILIB 222 A1")))))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+        (org-reading-list-mi--apply-update data))
+      (should (equal (org-entry-get nil "CALLNO") "MILIB 222 A1")))))
+
+
+
 
 (ert-deftest org-reading-list-mi-test-apply-update-overwrite-confirmed ()
   (with-temp-buffer

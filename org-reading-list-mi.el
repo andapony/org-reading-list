@@ -47,8 +47,8 @@ The single bib id fills every %1$s; the page is plain-text MARC."
 
 (defcustom org-reading-list-mi-holdings-code "MILIB"
   "Holdings/CALLNO code applied to entries captured from MILibrary.
-Must also appear in `org-reading-list-holdings-codes' to be offered
-for completion elsewhere."
+You may add it to `org-reading-list-holdings-codes' to have it offered
+for completion by `org-reading-list-set-holdings'."
   :type 'string
   :group 'org-reading-list)
 
@@ -218,6 +218,27 @@ SOURCE, if non-nil, is recorded in :FOUND:."
 HOLDINGS and CALLNO are handled by the holdings logic; the rest are
 entry-local bookkeeping.")
 
+(defun org-reading-list-mi--callno-merge (existing pair)
+  "Return a merged :CALLNO: value combining EXISTING pairs with PAIR.
+EXISTING is the current property value (semicolon-separated library
+code/call-number pairs) or nil.  PAIR is the incoming pair, e.g.
+\"MILIB 973.92 N53\".  If an existing pair shares PAIR's leading
+token (library code), it is replaced in place; otherwise PAIR is
+appended.  Returns the merged string."
+  (if (or (null existing) (string-empty-p (string-trim existing)))
+      pair
+    (let* ((code (car (split-string pair)))
+           (parts (mapcar #'string-trim (split-string existing ";")))
+           (replaced nil)
+           (merged
+            (mapcar (lambda (p)
+                      (if (equal (car (split-string p)) code)
+                          (progn (setq replaced t) pair)
+                        p))
+                    parts)))
+      (string-join (if replaced merged (append merged (list pair))) "; "))))
+
+
 (defun org-reading-list-mi--apply-update (data)
   "Update the Org entry at point from entry-data DATA.
 Adds the MILIB holdings code and call number, fills empty properties,
@@ -227,10 +248,13 @@ confirmation.  Return the list of property names changed."
         (changed '()))
     ;; Holdings + call number.
     (org-reading-list--holdings-add org-reading-list-mi-holdings-code)
-    (let ((callno (cdr (assoc "CALLNO" props))))
-      (when (and callno (not (equal callno (org-entry-get nil "CALLNO"))))
-        (org-entry-put nil "CALLNO" callno)
-        (push "CALLNO" changed)))
+    (let ((pair (cdr (assoc "CALLNO" props))))
+      (when pair
+        (let* ((prior (org-entry-get nil "CALLNO"))
+               (merged (org-reading-list-mi--callno-merge prior pair)))
+          (unless (equal merged prior)
+            (org-entry-put nil "CALLNO" merged)
+            (push "CALLNO" changed)))))
     ;; Enrich / refresh the rest.
     (dolist (kv props)
       (let ((name (car kv))
