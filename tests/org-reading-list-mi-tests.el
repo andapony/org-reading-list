@@ -127,5 +127,15 @@
     (let ((rec (org-reading-list-mi--bib-record "b1146522")))
       (should (equal (org-reading-list--marc-field rec "001") "44669515")))))
 
+(ert-deftest org-reading-list-mi-test-better-abstract ()
+  (should (equal (org-reading-list-mi--better-abstract nil "x") "x"))
+  (should (equal (org-reading-list-mi--better-abstract "y" nil) "y"))
+  (should-not (org-reading-list-mi--better-abstract nil nil))
+  (should-not (org-reading-list-mi--better-abstract "" "   "))
+  (should (equal (org-reading-list-mi--better-abstract "short" "much longer one")
+                 "much longer one"))
+  (should (equal (org-reading-list-mi--better-abstract "much longer one" "short")
+                 "much longer one")))
+
 (provide 'org-reading-list-mi-tests)
 ;;; org-reading-list-mi-tests.el ends here

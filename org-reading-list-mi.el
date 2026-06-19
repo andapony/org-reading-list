@@ -149,7 +149,15 @@ no <pre> is present."
          (text (and dom (org-reading-list-mi--marc-text dom))))
     (and text (org-reading-list-mi--parse-marc text))))
 
-
+(defun org-reading-list-mi--better-abstract (a b)
+  "Return the more informative of abstracts A and B, or nil.
+A nil or blank value loses to a non-blank one; when both have
+content, the longer string wins."
+  (let ((a (and a (not (string-blank-p a)) a))
+        (b (and b (not (string-blank-p b)) b)))
+    (cond ((and a b) (if (>= (length a) (length b)) a b))
+          (a a)
+          (b b))))
 
 (provide 'org-reading-list-mi)
 ;;; org-reading-list-mi.el ends here
