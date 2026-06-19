@@ -447,7 +447,9 @@ record is fetched as XML and turned into a reading-list entry: a new
 heading under `org-reading-list-headline', or, when the book is already
 in `org-reading-list-file', an in-place update (MI holdings and call
 number added, empty fields filled, differing fields refreshed on
-confirmation).  Point is left on the entry."
+confirmation).  When `org-reading-list-preen-on-capture' is enabled, a
+new entry's tags are preened against the file's controlled vocabulary,
+as in `org-reading-list-insert'.  Point is left on the entry."
   (interactive "P")
   (let* ((field (if choose-index (org-reading-list-mi--read-index) "t"))
          (query (read-string "MILibrary search: "))
@@ -471,7 +473,10 @@ confirmation).  Point is left on the entry."
                    (save-restriction
                      (widen)
                      (org-reading-list--insert-under-headline
-                      (org-reading-list--entry-string data)
+                      (org-reading-list--entry-string
+                       (if org-reading-list-preen-on-capture
+                           (org-reading-list--preen-data data)
+                         data))
                       org-reading-list-headline)))))
         (goto-char pos)
         (message "Added %s" (plist-get data :title))))))
