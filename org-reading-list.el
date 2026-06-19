@@ -387,6 +387,17 @@ entry's tags via `org-reading-list-tag-rewrites' and the target file's
 vocabulary before filing.  Off by default."
   :type 'boolean)
 
+(defun org-reading-list--tag-vocabulary ()
+  "Return the controlled tag vocabulary for the current buffer.
+The tags defined by the buffer's #+TAGS: (via `org-current-tag-alist')
+together with `org-reading-list-tag-vocabulary'."
+  (delete-dups
+   (append
+    (delq nil (mapcar (lambda (e) (and (consp e) (stringp (car e)) (car e)))
+                      org-current-tag-alist))
+    org-reading-list-tag-vocabulary)))
+
+
 ;;;; Entry construction
 
 (defun org-reading-list--ol-entry-data (rec bibkey source)

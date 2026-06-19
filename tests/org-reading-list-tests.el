@@ -116,6 +116,17 @@
   (should-not (org-reading-list--tag-rewrites-safe-p '((1 . "x"))))
   (should-not (org-reading-list--tag-rewrites-safe-p "nope")))
 
+(ert-deftest org-reading-list-test-tag-vocabulary ()
+  (with-temp-buffer
+    (insert "#+TAGS: gold_rush vigilance waterfront\n")
+    (org-mode)
+    (org-set-regexps-and-options)
+    (let ((org-reading-list-tag-vocabulary '("extra")))
+      (let ((v (org-reading-list--tag-vocabulary)))
+        (should (member "gold_rush" v))
+        (should (member "vigilance" v))
+        (should (member "extra" v))))))
+
 ;;;; Cite keys
 
 (ert-deftest org-reading-list-test-citekey-base ()
