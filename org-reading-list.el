@@ -1291,16 +1291,31 @@ it as a top-level heading at the end of the buffer when absent."
 HEADLINE is matched and created at the end of the buffer when absent,
 like the capture template's `file+headline' target.  ENTRY, a
 top-level Org subtree string, is demoted to sit one level below
-HEADLINE.  Return the buffer position of the inserted entry."
-  (goto-char (org-reading-list--find-or-create-headline headline))
-  (let ((level (org-current-level)))
-    (org-end-of-subtree t)
-    (unless (bolp) (insert "\n"))
-    (insert "\n")
-    (let ((start (point)))
-      (insert (org-reading-list--demote (string-trim-right entry) level)
-              "\n")
-      start)))
+HEADLINE.  A trailing file local-variables block is kept last: the
+entry is filed before it, since `org-end-of-subtree' would otherwise
+sweep the block into the last heading's subtree.  Return the buffer
+position of the inserted entry."
+  (let* ((start (org-reading-list--find-or-create-headline headline))
+         (level (save-excursion (goto-char start) (org-current-level)))
+         (end (save-excursion (goto-char start) (org-end-of-subtree t) (point)))
+         (lv (save-excursion
+               (goto-char start)
+               (let ((case-fold-search t))
+                 (and (re-search-forward "^[ \t]*#[ \t]*Local Variables:" end t)
+                      (match-beginning 0))))))
+    (if lv
+        (progn
+          (goto-char lv)
+          (let ((pos (point)))
+            (insert (org-reading-list--demote (string-trim-right entry) level)
+                    "\n\n")
+            pos))
+      (goto-char end)
+      (unless (bolp) (insert "\n"))
+      (insert "\n")
+      (let ((pos (point)))
+        (insert (org-reading-list--demote (string-trim-right entry) level) "\n")
+        pos))))
 
 ;;;###autoload
 (defun org-reading-list-goto-headline ()

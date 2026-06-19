@@ -926,6 +926,29 @@ DDC-nil case.")
     (goto-char (point-min))
     (should (re-search-forward "^\\*\\* TOREAD Old$" nil t))))
 
+(ert-deftest org-reading-list-test-insert-before-local-variables ()
+  ;; A trailing file local-variables block must stay last: the new child
+  ;; is filed inside Books, before the local-variables section, not after
+  ;; it (`org-end-of-subtree' otherwise sweeps the block into the subtree).
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD Old\n:PROPERTIES:\n:CUSTOM_ID: old\n:END:\n"
+            "\n# Local Variables:\n# org-foo: bar\n# End:\n")
+    (org-reading-list--insert-under-headline
+     org-reading-list-test--entry "Books")
+    (goto-char (point-min))
+    (should (re-search-forward "^\\*\\* TOREAD New$" nil t))
+    (let ((new-pos (match-beginning 0))
+          (lv-pos (progn (goto-char (point-min))
+                         (re-search-forward "^# Local Variables:$" nil t)
+                         (match-beginning 0))))
+      ;; The new entry precedes the local-variables block.
+      (should (< new-pos lv-pos)))
+    ;; The local-variables block is intact.
+    (goto-char (point-min))
+    (should (re-search-forward "^# End:$" nil t))))
+
+
 (ert-deftest org-reading-list-test-insert-creates-headline ()
   (with-temp-buffer
     (org-mode)
