@@ -253,9 +253,9 @@ MILIB holdings code is added, :CALLNO: gets a \"CODE callno\" pair, and
 (defun org-reading-list-mi--enrich-empty (base extra)
   "Fill empty fields of entry-data BASE from EXTRA; return BASE.
 BASE's own non-empty values always win.  Absent or empty props are
-filled from EXTRA, the richer abstract is chosen, a missing title or
-tags are taken from EXTRA, and EXTRA's ISBNs are merged in for
-duplicate detection."
+filled from EXTRA, the richer abstract is chosen, a missing title is
+taken from EXTRA, subjects are unioned, and EXTRA's ISBNs are merged
+in for duplicate detection."
   (let ((bprops (plist-get base :props))
         (eprops (plist-get extra :props)))
     (dolist (kv eprops)
@@ -276,8 +276,9 @@ duplicate detection."
     (setq base (plist-put base :props bprops))
     (unless (plist-get base :title)
       (setq base (plist-put base :title (plist-get extra :title))))
-    (unless (plist-get base :tags)
-      (setq base (plist-put base :tags (plist-get extra :tags))))
+    (setq base (plist-put base :subjects
+                          (delete-dups (append (plist-get base :subjects)
+                                               (plist-get extra :subjects)))))
     (plist-put base :isbns
                (delete-dups (append (plist-get base :isbns)
                                     (plist-get extra :isbns))))))

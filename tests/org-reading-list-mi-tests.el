@@ -234,6 +234,25 @@
         (should (equal (cdr (assoc "HOLDINGS" props)) "MILIB"))
         (should (equal (cdr (assoc "CALLNO" props)) "MILIB 973.92 N53"))))))
 
+(ert-deftest org-reading-list-mi-test-enrich-unions-subjects ()
+  ;; MI subjects and OL subjects are unioned into :subjects.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (rec '(record nil
+                       (datafield ((tag . "020") (ind1 . "") (ind2 . ""))
+                                  (subfield ((code . "a")) "0375505415"))
+                       (datafield ((tag . "650") (ind1 . " ") (ind2 . "0"))
+                                  (subfield ((code . "a")) "Sailors"))
+                       (datafield ((tag . "245") (ind1 . "1") (ind2 . "0"))
+                                  (subfield ((code . "a")) "T /")))))
+    (cl-letf (((symbol-function 'org-reading-list--entry-data)
+               (lambda (&rest _)
+                 (list :title "T" :subjects '("whaling") :tags '("whaling")
+                       :isbns '("0375505415") :props '(("TITLE" . "T"))))))
+      (let ((data (org-reading-list-mi--entry-data rec "src")))
+        (should (member "sailors" (plist-get data :subjects)))
+        (should (member "whaling" (plist-get data :subjects)))))))
+
+
 (ert-deftest org-reading-list-mi-test-entry-data-bridges-on-lccn ()
   ;; With a 010 (LCCN) and no 020 (ISBN), the bridge uses an LCCN id;
   ;; MI's title still wins and Open Library fills only the gaps.

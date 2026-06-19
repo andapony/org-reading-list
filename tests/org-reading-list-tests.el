@@ -471,6 +471,24 @@ DDC-nil case.")
     (should (equal (plist-get data :tags)
                    '("historic_ships" "california")))))
 
+(ert-deftest org-reading-list-test-marc-entry-data-subjects-uncapped ()
+  ;; :subjects carries the full set; :tags stays capped at max-tags.
+  (let* ((org-reading-list-file "/nonexistent/orl-test.org")
+         (org-reading-list-max-tags 2)
+         (rec '(record nil
+                       (datafield ((tag . "245") (ind1 . "0") (ind2 . "0"))
+                                  (subfield ((code . "a")) "T /"))
+                       (datafield ((tag . "650") (ind1 . " ") (ind2 . "0"))
+                                  (subfield ((code . "a")) "Alpha"))
+                       (datafield ((tag . "650") (ind1 . " ") (ind2 . "0"))
+                                  (subfield ((code . "a")) "Beta"))
+                       (datafield ((tag . "650") (ind1 . " ") (ind2 . "0"))
+                                  (subfield ((code . "a")) "Gamma"))))
+         (data (org-reading-list--marc-entry-data (list rec) "MI" nil)))
+    (should (equal (plist-get data :subjects) '("alpha" "beta" "gamma")))
+    (should (= (length (plist-get data :tags)) 2))))
+
+
 (defconst org-reading-list-test--loc-kemble
   '(record nil
            (datafield ((tag . "010") (ind1 . " ") (ind2 . " "))

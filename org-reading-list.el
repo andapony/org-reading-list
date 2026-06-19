@@ -329,13 +329,16 @@ rejects overlong headings."
                 "_+" "_+")))
       (unless (string-empty-p tag) tag))))
 
+(defun org-reading-list--ol-subjects (rec)
+  "Return every normalized subject tag from Open Library REC, uncapped."
+  (let ((names (delq nil (mapcar (lambda (s) (alist-get 'name s))
+                                 (org-reading-list--dig rec 'subjects)))))
+    (delete-dups (delq nil (mapcar #'org-reading-list--tagify names)))))
+
+
 (defun org-reading-list--subject-tags (rec)
   "Return up to `org-reading-list-max-tags' tags from REC's subjects."
-  (let* ((names (delq nil (mapcar (lambda (s) (alist-get 'name s))
-                                  (org-reading-list--dig rec 'subjects))))
-         (tags (delete-dups
-                (delq nil (mapcar #'org-reading-list--tagify names)))))
-    (seq-take tags org-reading-list-max-tags)))
+  (seq-take (org-reading-list--ol-subjects rec) org-reading-list-max-tags))
 
 ;;;; Controlled-vocabulary tags
 
@@ -560,7 +563,7 @@ BIBKEY is the bibkey REC was fetched under; SOURCE is as in
          (full-title (if subtitle (format "%s: %s" title subtitle) title))
          (author (org-reading-list--authors rec))
          (date (org-reading-list--date rec))
-         (tags (org-reading-list--subject-tags rec))
+         (subjects (org-reading-list--ol-subjects rec))
          (pages (org-reading-list--dig rec 'number_of_pages))
          (isbn13s (org-reading-list--dig rec 'identifiers 'isbn_13))
          (isbn10s (org-reading-list--dig rec 'identifiers 'isbn_10))
@@ -610,7 +613,9 @@ BIBKEY is the bibkey REC was fetched under; SOURCE is as in
             ("ABSTRACT"  . nil)
             ("ADDED"     . ,(format-time-string "[%Y-%m-%d %a]"))
             ("FOUND"     . ,source))))
-    (list :title full-title :tags tags :isbns all-isbns :props props)))
+    (list :title full-title :subjects subjects
+          :tags (seq-take subjects org-reading-list-max-tags)
+          :isbns all-isbns :props props)))
 
 (defun org-reading-list--entry-data (id &optional source)
   "Fetch bibliographic data for ID and compute entry fields.
@@ -1046,7 +1051,7 @@ is best match first, as `org-reading-list--loc-records' returns;
 each field falls through the records in order.  BIBKEY is the
 \"ISBN:...\" or \"LCCN:...\" bibkey that was queried; SOURCE is as in
 `org-reading-list-entry'.  For LCCN bibkeys the :ISBN: property
-comes from the records\\=' 020 fields, when present.  Identifiers
+comes from the records' 020 fields, when present.  Identifiers
 with no LoC equivalent (:OLID:, :IA:, :URL:) are omitted."
   (let* ((queried (and (string-prefix-p "ISBN:" bibkey)
                        (replace-regexp-in-string
@@ -1074,8 +1079,7 @@ with no LoC equivalent (:OLID:, :IA:, :URL:) are omitted."
                          (mapcan (lambda (r)
                                    (org-reading-list--marc-isbns r "a"))
                                  recs))))
-         (tags (seq-take (org-reading-list--marc-subject-tags recs)
-                         org-reading-list-max-tags))
+         (subjects (org-reading-list--marc-subject-tags recs))
          (props
           `(("CUSTOM_ID" . ,(org-reading-list--citekey author date))
             ("BTYPE"     . "book")
@@ -1097,7 +1101,9 @@ with no LoC equivalent (:OLID:, :IA:, :URL:) are omitted."
             ,@(org-reading-list--loc-marc-fields recs)
             ("ADDED"     . ,(format-time-string "[%Y-%m-%d %a]"))
             ("FOUND"     . ,source))))
-    (list :title title :tags tags :isbns isbns :props props)))
+    (list :title title :subjects subjects
+          :tags (seq-take subjects org-reading-list-max-tags)
+          :isbns isbns :props props)))
 
 (defun org-reading-list--loc-entry-data (bibkey source)
   "Entry data from the LC Catalog for an ISBN or LCCN BIBKEY.
