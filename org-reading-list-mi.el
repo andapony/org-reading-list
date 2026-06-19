@@ -212,5 +212,110 @@ SOURCE, if non-nil, is recorded in :FOUND:."
                     (list rec) "MI" source)))))
     (org-reading-list-mi--overlay base rec)))
 
+(defconst org-reading-list-mi--skip-props
+  '("ADDED" "FOUND" "CUSTOM_ID" "HOLDINGS" "CALLNO")
+  "Properties the update applier never enriches or overwrites directly.
+HOLDINGS and CALLNO are handled by the holdings logic; the rest are
+entry-local bookkeeping.")
+
+(defun org-reading-list-mi--apply-update (data)
+  "Update the Org entry at point from entry-data DATA.
+Adds the MILIB holdings code and call number, fills empty properties,
+and overwrites a differing non-empty property only after `y-or-n-p'
+confirmation.  Return the list of property names changed."
+  (let ((props (plist-get data :props))
+        (changed '()))
+    ;; Holdings + call number.
+    (org-reading-list--holdings-add org-reading-list-mi-holdings-code)
+    (let ((callno (cdr (assoc "CALLNO" props))))
+      (when (and callno (not (equal callno (org-entry-get nil "CALLNO"))))
+        (org-entry-put nil "CALLNO" callno)
+        (push "CALLNO" changed)))
+    ;; Enrich / refresh the rest.
+    (dolist (kv props)
+      (let ((name (car kv))
+            (val (cdr kv)))
+        (when (and val (not (member name org-reading-list-mi--skip-props)))
+          (let ((current (org-entry-get nil name)))
+            (cond
+             ((null current)
+              (org-entry-put nil name val)
+              (push name changed))
+             ((and (not (equal current val))
+                   (y-or-n-p (format "Replace :%s: %S with %S? "
+                                     name current val)))
+              (org-entry-put nil name val)
+              (push name changed)))))))
+    (nreverse changed)))
+
+(defun org-reading-list-mi--search-candidates (index query)
+  "Return MILibrary candidates for QUERY under search INDEX code.
+INDEX is a WebPAC `searchtype' code; QUERY is the raw search string."
+  (let* ((url (format org-reading-list-mi-search-url
+                      index (url-hexify-string query)))
+         (dom (or (org-reading-list-mi--fetch-html url)
+                  (user-error "No response from MILibrary for %s" query))))
+    (or (org-reading-list-mi--results-candidates dom)
+        (user-error "No MILibrary results for %s" query))))
+
+(defun org-reading-list-mi--read-index ()
+  "Prompt for a search index; return its WebPAC `searchtype' code."
+  (cdr (assoc (completing-read "Search by: "
+                               (mapcar #'car org-reading-list-mi-indexes)
+                               nil t nil nil "title")
+              org-reading-list-mi-indexes)))
+
+(defun org-reading-list-mi--choose (candidates)
+  "Prompt to choose one of CANDIDATES; return its bib id."
+  (let* ((labels (mapcar
+                  (lambda (c)
+                    (cons (concat (plist-get c :title)
+                                  (let ((y (plist-get c :year)))
+                                    (if y (format " (%s)" y) "")))
+                          (plist-get c :bibid)))
+                  candidates))
+         (pick (completing-read "MILibrary result: " labels nil t)))
+    (cdr (assoc pick labels))))
+
+;;;###autoload
+(defun org-reading-list-mi-search (&optional choose-index)
+  "Search MILibrary, pick a result, and capture or update it.
+Prompts for a title query (with a prefix arg CHOOSE-INDEX, first pick
+the search index: title, author, keyword, or ISBN).  The chosen
+record's MARC is fetched and turned into a reading-list entry: a new
+heading under `org-reading-list-headline', or, when the book is already
+in `org-reading-list-file', an in-place update (MI holdings and call
+number added, empty fields filled, differing fields refreshed on
+confirmation).  Point is left on the entry."
+  (interactive "P")
+  (let* ((index (if choose-index (org-reading-list-mi--read-index) "t"))
+         (query (read-string "MILibrary search: "))
+         (candidates (org-reading-list-mi--search-candidates index query))
+         (bibid (org-reading-list-mi--choose candidates))
+         (rec (or (org-reading-list-mi--bib-record bibid)
+                  (user-error "No MARC record for %s" bibid)))
+         (data (org-reading-list-mi--entry-data rec))
+         (dup (org-reading-list--duplicate-in-file data))
+         (buf (find-file-noselect org-reading-list-file)))
+    (pop-to-buffer buf)
+    (widen)
+    (if dup
+        (progn
+          (goto-char (plist-get (cdr dup) :pos))
+          (let ((changed (org-reading-list-mi--apply-update data)))
+            (message "Updated %s%s" (plist-get (cdr dup) :heading)
+                     (if changed (format " (%s)" (string-join changed ", "))
+                       " (no change)"))))
+      (let ((pos (with-current-buffer buf
+                   (save-restriction
+                     (widen)
+                     (org-reading-list--insert-under-headline
+                      (org-reading-list--entry-string data)
+                      org-reading-list-headline)))))
+        (goto-char pos)
+        (message "Added %s" (plist-get data :title))))))
+
+
+
 (provide 'org-reading-list-mi)
 ;;; org-reading-list-mi.el ends here

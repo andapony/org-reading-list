@@ -195,5 +195,52 @@
         (should (string-match-p "richer MI summary"
                                 (cdr (assoc "ABSTRACT" props))))))))
 
+(ert-deftest org-reading-list-mi-test-apply-update-enrich-empty ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD A Book\n:PROPERTIES:\n:TITLE: A Book\n:END:\n")
+    (goto-char (point-min))
+    (let ((data (list :title "A Book"
+                      :props '(("TITLE" . "A Book")
+                               ("ISBN" . "0375505415")
+                               ("HOLDINGS" . "MILIB")
+                               ("CALLNO" . "MILIB 973.92 N53")))))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+        (org-reading-list-mi--apply-update data))
+      ;; Empty field filled; holdings/callno applied.
+      (should (equal (org-entry-get nil "ISBN") "0375505415"))
+      (should (string-match-p "MILIB" (org-entry-get nil "HOLDINGS")))
+      (should (equal (org-entry-get nil "CALLNO") "MILIB 973.92 N53")))))
+
+(ert-deftest org-reading-list-mi-test-apply-update-overwrite-confirmed ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD A Book\n:PROPERTIES:\n:ABSTRACT: old short\n:END:\n")
+    (goto-char (point-min))
+    (let ((data (list :title "A Book"
+                      :props '(("ABSTRACT" . "new much longer abstract text")
+                               ("HOLDINGS" . "MILIB"))))
+          (asked nil))
+      (cl-letf (((symbol-function 'y-or-n-p)
+                 (lambda (&rest _) (setq asked t) t)))
+        (org-reading-list-mi--apply-update data))
+      (should asked)
+      (should (equal (org-entry-get nil "ABSTRACT")
+                     "new much longer abstract text")))))
+
+(ert-deftest org-reading-list-mi-test-apply-update-overwrite-declined ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD A Book\n:PROPERTIES:\n:ABSTRACT: keep me\n:END:\n")
+    (goto-char (point-min))
+    (let ((data (list :title "A Book"
+                      :props '(("ABSTRACT" . "do not use")))))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) nil)))
+        (org-reading-list-mi--apply-update data))
+      (should (equal (org-entry-get nil "ABSTRACT") "keep me")))))
+
+
+
+
 (provide 'org-reading-list-mi-tests)
 ;;; org-reading-list-mi-tests.el ends here
