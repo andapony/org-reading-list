@@ -1294,6 +1294,24 @@ BODY may reference `file', the temp file's path."
       (should (equal (org-entry-get nil "SUBJECTS") "gold_discoveries; history"))
       (should (equal (org-get-tags nil t) '("gold_rush"))))))
 
+(ert-deftest org-reading-list-test-fetch-subjects-reports-progress ()
+  ;; The whole-file pass emits a per-entry progress message.
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD A\n:PROPERTIES:\n:BTYPE: book\n:ISBN: 1\n:END:\n"
+            "* TOREAD B\n:PROPERTIES:\n:BTYPE: book\n:ISBN: 2\n:END:\n")
+    (let ((org-reading-list-subject-functions (list (lambda () '("x"))))
+          (msgs '()))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'message)
+                 (lambda (fmt &rest args)
+                   (push (ignore-errors (apply #'format fmt args)) msgs)
+                   nil)))
+        (org-reading-list-fetch-subjects t))
+      (should (seq-find (lambda (m) (and m (string-match-p "1/2" m))) msgs))
+      (should (seq-find (lambda (m) (and m (string-match-p "2/2" m))) msgs)))))
+
+
 
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here

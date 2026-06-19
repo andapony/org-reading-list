@@ -540,20 +540,25 @@ the entry's identifiers, plus any registered source such as MILibrary),
 store them in :SUBJECTS:, and re-derive the heading tags from them
 through the controlled vocabulary, as capture does.  With a prefix
 argument ALL, do this for every book entry (non-empty :BTYPE:) in the
-buffer, after confirmation.  Entries from which no source returns
-subjects are left unchanged."
+buffer, after confirmation, reporting per-entry progress in the echo
+area (each entry makes synchronous network requests).  Entries from
+which no source returns subjects are left unchanged."
   (interactive "P")
   (if all
       (let ((n (length (org-map-entries #'ignore "BTYPE={.}")))
+            (i 0)
             (updated 0))
         (when (yes-or-no-p (format "Fetch subjects for %d entries? " n))
           (org-map-entries
            (lambda ()
+             (setq i (1+ i))
+             (message "Fetching subjects %d/%d: %s..."
+                      i n (org-get-heading t t t t))
              (when (org-reading-list--fetch-entry-subjects)
                (org-reading-list--reproject-entry-tags)
                (setq updated (1+ updated))))
            "BTYPE={.}")
-          (message "Updated :SUBJECTS: on %d of %d entries" updated n)))
+          (message "Fetched subjects: updated %d of %d entries" updated n)))
     (if (org-reading-list--fetch-entry-subjects)
         (progn
           (org-reading-list--reproject-entry-tags)
