@@ -220,6 +220,18 @@ Open Library paths refer to the books API with =jscmd=data=
   code extracts the first 4-digit year; refine by hand if needed.
 - *ISBN-13 preferred*: the code records =isbn_13[0]= when available
   even if you searched by an ISBN-10.
+- *OLID suffixes*: the trailing letter of an Open Library id encodes
+  the record type — =…M= an edition (a specific printing, under the
+  =/books/= path), =…W= a work (the abstract title grouping all its
+  editions, under =/works/=), =…A= an author. Bibliographic data
+  (ISBN, publisher, year, call number) lives on the *edition* record,
+  so only =…M= ids are usable here. =org-reading-list-insert= accepts
+  an =…M= id, an =ISBN:= / =OLID:= / =LCCN:= / =OCLC:= bibkey, or any
+  openlibrary.org URL with an =…M= id in it — including a work-page URL
+  that names one in its =?edition=…/books/OL…M= query, since the
+  edition id is pulled from the URL text. A bare =…W= id (or a work URL
+  with no edition selected) is rejected with a note to open the edition
+  you mean, because a work alone has no single set of edition data.
 - *Pre-ISBN books capture by OLID*: the capture prompt accepts an
   Open Library edition id (=OL5851208M=) or any openlibrary.org URL
   containing one, in place of an ISBN. Data is *per edition* — a work
