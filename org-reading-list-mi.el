@@ -147,6 +147,21 @@ id of the form \"bNNNNNNN\"."
             (and v (string-match-p "\\`b[0-9]+\\'" v) v))))
    (dom-by-tag row 'input)))
 
+(defun org-reading-list-mi--row-format (row)
+  "Return ROW's media/format label (e.g. \"Books\", \"DVD\"), or nil.
+Read from the brief-citation media icon's alt text."
+  (let* ((media (car (dom-by-class row "briefcitMedia")))
+         (img (and media (car (dom-by-tag media 'img))))
+         (alt (and img (dom-attr img 'alt))))
+    (and alt (not (string-empty-p alt)) alt)))
+
+(defun org-reading-list-mi--row-year (row)
+  "Return a four-digit year from ROW's publisher line, or nil."
+  (let ((pub (org-reading-list-mi--node-class-text row "briefcitPublisher")))
+    (and pub (string-match "[0-9]\\{4\\}" pub) (match-string 0 pub))))
+
+
+
 (defun org-reading-list-mi--single-record-bibid (dom)
   "Return the bib id of a single-record page DOM, or nil.
 A unique search lands on the record page; its permalink href carries
@@ -159,7 +174,7 @@ A unique search lands on the record page; its permalink href carries
 
 (defun org-reading-list-mi--results-candidates (dom)
   "Parse a MILibrary keyword-results DOM into candidate plists.
-Return a list of plists (:title :author :year :bibid), one per
+Return a list of plists (:title :author :year :format :bibid), one per
 brief-citation row, capped at `org-reading-list-mi-max-results'.  When
 the search matched a single record (the catalog shows the record page
 directly) return one candidate built from that page."
@@ -175,7 +190,9 @@ directly) return one candidate built from that page."
                 (push (list :title title
                             :author (org-reading-list-mi--node-class-text
                                      row "briefcitAuthor")
-                            :year nil :bibid bibid)
+                            :year (org-reading-list-mi--row-year row)
+                            :format (org-reading-list-mi--row-format row)
+                            :bibid bibid)
                       cands)
                 (when (>= (length cands) org-reading-list-mi-max-results)
                   (throw 'done nil)))))
@@ -185,7 +202,7 @@ directly) return one candidate built from that page."
           (push (list :title (or (org-reading-list-mi--node-class-text
                                   dom "bibInfoData")
                                  bibid)
-                      :author nil :year nil :bibid bibid)
+                      :author nil :year nil :format nil :bibid bibid)
                 cands))))
     (nreverse cands)))
 
@@ -370,9 +387,7 @@ on no response or no results."
   "Prompt to choose one of CANDIDATES; return its bib id."
   (let* ((labels (mapcar
                   (lambda (c)
-                    (cons (concat (plist-get c :title)
-                                  (let ((a (plist-get c :author)))
-                                    (if a (format " - %s" a) "")))
+                    (cons (org-reading-list-mi--candidate-label c)
                           (plist-get c :bibid)))
                   candidates))
          (pick (completing-read "MILibrary result: " labels nil t)))
@@ -392,6 +407,17 @@ Signal a `user-error' when the entry has neither to search by."
       (plist-get
        (car (org-reading-list-mi--search-candidates "t" title)) :bibid))
      (t (user-error "Entry has no :ISBN: or :TITLE: to search MILibrary by")))))
+
+(defun org-reading-list-mi--candidate-label (c)
+  "Return a display label for candidate plist C.
+Shows the title, author, and a bracketed format/year tag when known so
+editions (print, eBook, DVD, audiobook) can be told apart."
+  (let ((author (plist-get c :author))
+        (tags (delq nil (list (plist-get c :format) (plist-get c :year)))))
+    (concat (plist-get c :title)
+            (and author (format " - %s" author))
+            (and tags (format "  [%s]" (string-join tags ", "))))))
+
 
 ;;;###autoload
 (defun org-reading-list-mi-enrich ()

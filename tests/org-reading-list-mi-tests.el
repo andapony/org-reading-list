@@ -94,11 +94,15 @@
      <div class=\"briefcitMark\"><input type=\"checkbox\" name=\"save\" value=\"b1146522\"></div>
      <div class=\"briefcitTitle\"><a href=\"/search?/X/frameset\">The new gilded age</a></div>
      <div class=\"briefcitAuthor\"><a href=\"/x\">Remnick, David</a></div>
+     <div class=\"briefcitMedia\"><img src=\"/x\" alt=\"Books\"></div>
+     <div class=\"briefcitPublisher\">Random House, 2000.</div>
    </div>
    <div class=\"briefcitCell\">
      <div class=\"briefcitMark\"><input type=\"checkbox\" name=\"save\" value=\"b1243827\"></div>
      <div class=\"briefcitTitle\"><a href=\"/x\">Moby-Dick, or, The whale</a></div>
      <div class=\"briefcitAuthor\"><a href=\"/x\">Melville, Herman</a></div>
+     <div class=\"briefcitMedia\"><img src=\"/x\" alt=\"DVD\"></div>
+     <div class=\"briefcitPublisher\">Warner, 2001.</div>
    </div>"
   "Trimmed MILibrary keyword brief-citation results, two rows.")
 
@@ -110,8 +114,22 @@
     (should (equal (plist-get (car cands) :bibid) "b1146522"))
     (should (equal (plist-get (car cands) :title) "The new gilded age"))
     (should (equal (plist-get (car cands) :author) "Remnick, David"))
+    (should (equal (plist-get (car cands) :format) "Books"))
+    (should (equal (plist-get (car cands) :year) "2000"))
     (should (equal (plist-get (cadr cands) :bibid) "b1243827"))
-    (should (equal (plist-get (cadr cands) :title) "Moby-Dick, or, The whale"))))
+    (should (equal (plist-get (cadr cands) :title) "Moby-Dick, or, The whale"))
+    (should (equal (plist-get (cadr cands) :format) "DVD"))))
+
+(ert-deftest org-reading-list-mi-test-candidate-label ()
+  (should (equal (org-reading-list-mi--candidate-label
+                  '(:title "Moby Dick" :author "Peck, Gregory"
+                    :format "DVD" :year "2001"))
+                 "Moby Dick - Peck, Gregory  [DVD, 2001]"))
+  ;; Missing pieces are omitted cleanly.
+  (should (equal (org-reading-list-mi--candidate-label
+                  '(:title "Just a title" :author nil :format nil :year nil))
+                 "Just a title")))
+
 
 (ert-deftest org-reading-list-mi-test-results-candidates-cap ()
   (let ((org-reading-list-mi-max-results 1)
