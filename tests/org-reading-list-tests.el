@@ -1276,5 +1276,24 @@ BODY may reference `file', the temp file's path."
       (should (equal (org-entry-get nil "SUBJECTS")
                      "sailors; whaling; sea_stories")))))
 
+(ert-deftest org-reading-list-test-fetch-subjects-projects-tags ()
+  ;; fetch-subjects writes :SUBJECTS: AND re-derives the heading tags
+  ;; through the controlled vocabulary.
+  (with-temp-buffer
+    (insert "#+TAGS: gold_rush\n"
+            "* TOREAD X\n:PROPERTIES:\n:ISBN: 0375505415\n:END:\n")
+    (org-mode)
+    (org-set-regexps-and-options)
+    (goto-char (point-min))
+    (re-search-forward "^\\* TOREAD X")
+    (let ((org-reading-list-tag-rewrites
+           '(("gold_discoveries" . "gold_rush") ("history" . nil)))
+          (org-reading-list-subject-functions
+           (list (lambda () '("gold_discoveries" "history")))))
+      (org-reading-list-fetch-subjects)
+      (should (equal (org-entry-get nil "SUBJECTS") "gold_discoveries; history"))
+      (should (equal (org-get-tags nil t) '("gold_rush"))))))
+
+
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here

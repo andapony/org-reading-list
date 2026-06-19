@@ -531,13 +531,15 @@ when no source yielded subjects (the property is then left unchanged)."
 
 ;;;###autoload
 (defun org-reading-list-fetch-subjects (&optional all)
-  "Populate the :SUBJECTS: of the entry at point from upstream sources.
+  "Populate the :SUBJECTS: of the entry at point and re-derive its tags.
 Union the normalized subjects returned by every function in
 `org-reading-list-subject-functions' (Open Library and the LC Catalog by
-the entry's identifiers, plus any registered source such as MILibrary)
-and store them in :SUBJECTS:.  With a prefix argument ALL, do this for
-every book entry (non-empty :BTYPE:) in the buffer, after confirmation.
-Entries from which no source returns subjects are left unchanged."
+the entry's identifiers, plus any registered source such as MILibrary),
+store them in :SUBJECTS:, and re-derive the heading tags from them
+through the controlled vocabulary, as capture does.  With a prefix
+argument ALL, do this for every book entry (non-empty :BTYPE:) in the
+buffer, after confirmation.  Entries from which no source returns
+subjects are left unchanged."
   (interactive "P")
   (if all
       (let ((n (length (org-map-entries #'ignore "BTYPE={.}")))
@@ -546,11 +548,14 @@ Entries from which no source returns subjects are left unchanged."
           (org-map-entries
            (lambda ()
              (when (org-reading-list--fetch-entry-subjects)
+               (org-reading-list--reproject-entry-tags)
                (setq updated (1+ updated))))
            "BTYPE={.}")
           (message "Updated :SUBJECTS: on %d of %d entries" updated n)))
     (if (org-reading-list--fetch-entry-subjects)
-        (message "SUBJECTS: %s" (org-entry-get nil "SUBJECTS"))
+        (progn
+          (org-reading-list--reproject-entry-tags)
+          (message "SUBJECTS: %s" (org-entry-get nil "SUBJECTS")))
       (message "No subjects found for this entry"))))
 
 
@@ -572,6 +577,20 @@ changing nothing, when the entry has no :SUBJECTS: property."
         (setq new (org-reading-list--infer-merge new vocab ctx))
         (org-set-tags new)
         new))))
+
+(defun org-reading-list--reproject-entry-tags ()
+  "Re-derive the Org tags of the entry at point from its :SUBJECTS:.
+With a controlled vocabulary, project the subjects through it via
+`org-reading-list--preen-entry'; without one, set the tags to the raw
+subjects capped at `org-reading-list-max-tags', mirroring capture.
+Return nil when the entry has no :SUBJECTS:."
+  (let ((vocab (org-reading-list--tag-vocabulary)))
+    (if vocab
+        (org-reading-list--preen-entry vocab org-reading-list-tag-rewrites)
+      (let ((subjects (org-reading-list--entry-subjects)))
+        (and subjects
+             (org-set-tags (seq-take subjects org-reading-list-max-tags)))))))
+
 
 (defun org-reading-list--derive-tags (data)
   "Materialize :SUBJECTS: and project the heading tags for DATA.

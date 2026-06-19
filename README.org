@@ -237,9 +237,11 @@ when the rewrite map is set this way.
 - =M-x org-reading-list-fetch-subjects=: populates =:SUBJECTS:= for the
   entry at point by querying Open Library, the LC Catalog, MILibrary (when
   loaded), and any other registered source, unioning the normalized subjects
-  they return.  With =C-u=, does this for every book entry in the buffer
-  after prompting for confirmation.  Entries from which no source returns
-  subjects are left unchanged.
+  they return.  It then re-derives the heading tags from the stored
+  subjects through the controlled vocabulary, as capture does.  With
+  =C-u=, does this for every book entry in the buffer after prompting for
+  confirmation.  Entries from which no source returns subjects are left
+  unchanged.
 - =M-x org-reading-list-lint-tags=: a preview (dry run) — shows for
   each entry the rewrites and drops that =preen= would apply, and flags
   entries with fewer than =org-reading-list-tag-min= tags (default 1) or
