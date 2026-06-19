@@ -1378,7 +1378,8 @@ you are asked first; declining aborts the capture."
                     (list (plist-get (cdr dup) :heading))))
           (org-reading-list--entry-string
            (if org-reading-list-preen-on-capture
-               (org-reading-list--preen-data data)
+               (with-current-buffer (find-file-noselect org-reading-list-file)
+                 (org-reading-list--preen-data data))
              data)))
       (org-reading-list-duplicate
        (user-error "Already in list: %s" (cadr err)))
