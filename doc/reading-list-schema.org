@@ -149,11 +149,11 @@ Subjects map to Org tags on the headline:
 
 The file's own =#+TAGS:= line is the vocabulary.  =org-reading-list-tag-rewrites=
 (a file-local alist, marked =safe-local-variable=) maps raw or variant
-tags to their vocabulary equivalents, or to =nil= to drop them.  =M-x
-org-reading-list-lint-tags= previews the rewrites and flags entries
-below the minimum tag count without modifying anything; =M-x
-org-reading-list-preen-tags= applies the map to the entry at point (=C-u=
-for every entry in the buffer).  The human-readable grouped form of the
+tags to their vocabulary equivalents, or to =nil= to drop them.
+=M-x org-reading-list-lint-tags= previews the rewrites and flags entries
+below the minimum tag count without modifying anything;
+=M-x org-reading-list-preen-tags= applies the map to the entry at point
+(=C-u= for every entry in the buffer).  The human-readable grouped form of the
 rewrite map lives in a sidecar file alongside the reading list.
 Capture can auto-preen before filing via =org-reading-list-preen-on-capture=
 (default off).
