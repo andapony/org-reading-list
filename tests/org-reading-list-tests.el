@@ -283,9 +283,6 @@
         (should (equal (cdr (assoc "SUBJECTS" props))  ; source preserved
                        "sailors; whaling"))))))
 
-
-
-
 ;;;; Cite keys
 
 (ert-deftest org-reading-list-test-citekey-base ()
@@ -1278,9 +1275,6 @@ BODY may reference `file', the temp file's path."
       (org-reading-list--fetch-entry-subjects)
       (should (equal (org-entry-get nil "SUBJECTS")
                      "sailors; whaling; sea_stories")))))
-
-
-
 
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here

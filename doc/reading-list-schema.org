@@ -147,16 +147,28 @@ Subjects map to Org tags on the headline:
   =gold_rush=, =labor=, =urbanism=, =waterfront=, …). Capture tools may
   emit raw normalized headings; prune to your vocabulary when filing.
 
+The =:SUBJECTS:= property (non-BibTeX) holds the full normalized subject
+set as a semicolon-separated string (=tok; tok; tok=) and is the durable
+source of truth for subjects.  The Org headline tags are a projection of
+=:SUBJECTS:= through the file's =#+TAGS:= vocabulary and
+=org-reading-list-tag-rewrites=: only tokens that survive the rewrite map
+and appear in (or are added to) the vocabulary become tags.
+=M-x org-reading-list-fetch-subjects= populates =:SUBJECTS:= from
+upstream: it unions the normalized subjects returned by Open Library, the
+LC Catalog, MILibrary (when loaded), and any other registered source for
+the entry's identifiers, then stores them in =:SUBJECTS:=.  With a prefix
+argument it does this for every book entry in the buffer.  Capture always
+writes =:SUBJECTS:= and projects it to tags on filing.
+
 The file's own =#+TAGS:= line is the vocabulary.  =org-reading-list-tag-rewrites=
 (a file-local alist, marked =safe-local-variable=) maps raw or variant
 tags to their vocabulary equivalents, or to =nil= to drop them.
 =M-x org-reading-list-lint-tags= previews the rewrites and flags entries
 below the minimum tag count without modifying anything;
-=M-x org-reading-list-preen-tags= applies the map to the entry at point
-(=C-u= for every entry in the buffer).  The human-readable grouped form of the
-rewrite map lives in a sidecar file alongside the reading list.
-Capture can auto-preen before filing via =org-reading-list-preen-on-capture=
-(default off).
+=M-x org-reading-list-preen-tags= re-derives the entry's tags from its
+=:SUBJECTS:= property, applying the rewrite map (=C-u= for every entry in
+the buffer).  The human-readable grouped form of the rewrite map lives in
+a sidecar file alongside the reading list.
 
 - Cap at ~6 tags per entry; more hurts the headline and adds nothing.
 - Status is *never* a tag — it's the TODO keyword (=TOREAD= /

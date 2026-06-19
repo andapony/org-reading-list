@@ -434,7 +434,7 @@ when the entry has no :SUBJECTS: property)."
     (org-map-entries
      (lambda ()
        (let* ((cur (org-reading-list--entry-subjects))
-              (res (org-reading-list--rewrite-tags (or cur nil) vocab rewrites)))
+              (res (org-reading-list--rewrite-tags cur vocab rewrites)))
          (push (list :heading (org-get-heading t t t t)
                      :current cur :new (car res) :record (cdr res)
                      :thin (< (length (car res)) org-reading-list-tag-min)
@@ -552,9 +552,6 @@ Entries from which no source returns subjects are left unchanged."
     (if (org-reading-list--fetch-entry-subjects)
         (message "SUBJECTS: %s" (org-entry-get nil "SUBJECTS"))
       (message "No subjects found for this entry"))))
-
-
-
 
 
 (defun org-reading-list--preen-entry (vocab rewrites)
