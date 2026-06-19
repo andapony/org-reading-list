@@ -406,17 +406,18 @@ is a plist with :rewritten (alist of raw . target), :dropped-explicit,
 and :dropped-unresolved."
   (let (kept rewritten dropped-explicit dropped-unresolved)
     (dolist (tag tags)
-      (cond
-       ((member tag vocab) (push tag kept))
-       ((assoc tag rewrites)
-        (let ((target (cdr (assoc tag rewrites))))
-          (cond
-           ((null target) (push tag dropped-explicit))
-           ((member target vocab)
-            (push target kept)
-            (push (cons tag target) rewritten))
-           (t (push tag dropped-unresolved)))))
-       (t (push tag dropped-unresolved))))
+      (let ((cell (assoc tag rewrites)))
+        (cond
+         ((member tag vocab) (push tag kept))
+         (cell
+          (let ((target (cdr cell)))
+            (cond
+             ((null target) (push tag dropped-explicit))
+             ((member target vocab)
+              (push target kept)
+              (push (cons tag target) rewritten))
+             (t (push tag dropped-unresolved)))))
+         (t (push tag dropped-unresolved)))))
     (cons (seq-take (sort (delete-dups (nreverse kept)) #'string<)
                     org-reading-list-max-tags)
           (list :rewritten (nreverse rewritten)
@@ -456,7 +457,6 @@ list, or NEW unchanged."
         (seq-take (sort (delete-dups (append new added)) #'string<)
                   org-reading-list-max-tags))
     new))
-
 
 ;;;###autoload
 (defun org-reading-list-lint-tags ()
@@ -523,7 +523,6 @@ below `org-reading-list-tag-min', add the tags it returns."
         (plist-put (copy-sequence data) :tags
                    (org-reading-list--infer-merge new vocab ctx))))))
 
-
 ;;;###autoload
 (defun org-reading-list-preen-tags (&optional all)
   "Preen the tags of the Org entry at point to the controlled vocabulary.
@@ -548,8 +547,6 @@ See `org-reading-list-lint-tags' for a non-destructive preview."
       (org-reading-list--preen-entry vocab rewrites)
       (message "Preened: %s"
                (or (string-join (org-get-tags nil t) " ") "none"))))))
-
-
 
 ;;;; Entry construction
 

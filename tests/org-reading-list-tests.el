@@ -248,13 +248,6 @@
       (should (equal (plist-get (org-reading-list--preen-data data) :tags)
                      '("history"))))))
 
-
-
-
-
-
-
-
 ;;;; Cite keys
 
 (ert-deftest org-reading-list-test-citekey-base ()
