@@ -239,6 +239,35 @@
         (org-reading-list-mi--apply-update data))
       (should (equal (org-entry-get nil "ABSTRACT") "keep me")))))
 
+(ert-deftest org-reading-list-mi-test-enrich-at-point ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD The New Gilded Age\n:PROPERTIES:\n"
+            ":TITLE: The New Gilded Age\n:ISBN: 0375505415\n:END:\n")
+    (goto-char (point-min))
+    (cl-letf (((symbol-function 'org-reading-list-mi--search-candidates)
+               (lambda (&rest _)
+                 (list (list :title "The new gilded age" :author nil
+                             :year nil :bibid "b1146522"))))
+              ((symbol-function 'org-reading-list-mi--bib-record)
+               (lambda (_)
+                 (org-reading-list-mi--parse-marc
+                  org-reading-list-mi-test--marc-text)))
+              ;; Stub the OL/LoC base so the ISBN bridge stays offline.
+              ((symbol-function 'org-reading-list--entry-data)
+               (lambda (&rest _)
+                 (list :title "The New Gilded Age" :tags nil
+                       :isbns '("0375505415")
+                       :props (list (cons "TITLE" "The New Gilded Age")
+                                    (cons "ABSTRACT" "short")))))
+              ((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+      (org-reading-list-mi-enrich)
+      (should (string-match-p "MILIB" (org-entry-get nil "HOLDINGS")))
+      (should (equal (org-entry-get nil "CALLNO") "MILIB 973.92 N53"))
+      (should (string-match-p "essays"
+                              (or (org-entry-get nil "ABSTRACT") ""))))))
+
+
 
 
 

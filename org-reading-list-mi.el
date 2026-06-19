@@ -277,6 +277,40 @@ INDEX is a WebPAC `searchtype' code; QUERY is the raw search string."
          (pick (completing-read "MILibrary result: " labels nil t)))
     (cdr (assoc pick labels))))
 
+(defun org-reading-list-mi--entry-bibid ()
+  "Find the MILibrary bib id for the Org entry at point, or nil.
+Searches by :ISBN: first, then by :TITLE:, taking the first candidate.
+Signal a `user-error' when the entry has neither to search by."
+  (let* ((isbn (let ((v (org-entry-get nil "ISBN")))
+                 (and v (car (split-string v "[, ]" t)))))
+         (title (org-entry-get nil "TITLE")))
+    (cond
+     (isbn (plist-get
+            (car (org-reading-list-mi--search-candidates "i" isbn)) :bibid))
+     ((and title (not (string-empty-p title)))
+      (plist-get
+       (car (org-reading-list-mi--search-candidates "t" title)) :bibid))
+     (t (user-error "Entry has no :ISBN: or :TITLE: to search MILibrary by")))))
+
+;;;###autoload
+(defun org-reading-list-mi-enrich ()
+  "Enrich the Org entry at point from its MILibrary record.
+Looks the entry up in MILibrary by :ISBN: (or :TITLE:), fetches the
+matching record's MARC, and applies the update: add the MILIB holdings
+code and call number, fill empty properties, and refresh differing
+properties on confirmation.  Signal a `user-error' when no MILibrary
+record is found."
+  (interactive)
+  (let* ((bibid (or (org-reading-list-mi--entry-bibid)
+                    (user-error "No MILibrary match for this entry")))
+         (rec (or (org-reading-list-mi--bib-record bibid)
+                  (user-error "No MARC record for %s" bibid)))
+         (data (org-reading-list-mi--entry-data rec))
+         (changed (org-reading-list-mi--apply-update data)))
+    (message "Enriched from MILibrary%s"
+             (if changed (format ": %s" (string-join changed ", "))
+               " (no change)"))))
+
 ;;;###autoload
 (defun org-reading-list-mi-search (&optional choose-index)
   "Search MILibrary, pick a result, and capture or update it.
