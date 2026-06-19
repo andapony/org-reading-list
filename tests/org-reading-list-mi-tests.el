@@ -81,5 +81,33 @@
 (ert-deftest org-reading-list-mi-test-parse-marc-empty ()
   (should-not (org-reading-list-mi--parse-marc "no marc here\njust text")))
 
+(defconst org-reading-list-mi-test--results-html
+  "<table class=\"browseResult\">
+     <tr class=\"browseEntry\">
+       <td><a href=\"/record=b1146522~S1\">The new gilded age</a></td>
+       <td>2000</td></tr>
+     <tr class=\"browseEntry\">
+       <td><a href=\"/search?/.b1234567/.b1234567/1,1,1,B/frameset\">Moby Dick in Manhattan</a></td>
+       <td>1994</td></tr>
+   </table>"
+  "Trimmed WebPAC results markup with two entries.")
+
+(ert-deftest org-reading-list-mi-test-results-candidates ()
+  (let* ((dom (with-temp-buffer
+                (insert org-reading-list-mi-test--results-html)
+                (libxml-parse-html-region (point-min) (point-max))))
+         (cands (org-reading-list-mi--results-candidates dom)))
+    (should (= (length cands) 2))
+    (should (equal (plist-get (car cands) :bibid) "b1146522"))
+    (should (equal (plist-get (car cands) :title) "The new gilded age"))
+    (should (equal (plist-get (cadr cands) :bibid) "b1234567"))))
+
+(ert-deftest org-reading-list-mi-test-results-candidates-cap ()
+  (let ((org-reading-list-mi-max-results 1)
+        (dom (with-temp-buffer
+               (insert org-reading-list-mi-test--results-html)
+               (libxml-parse-html-region (point-min) (point-max)))))
+    (should (= (length (org-reading-list-mi--results-candidates dom)) 1))))
+
 (provide 'org-reading-list-mi-tests)
 ;;; org-reading-list-mi-tests.el ends here

@@ -109,5 +109,30 @@ Return nil when TEXT contains no tagged fields."
     (when fields
       `(record nil ,@(nreverse fields)))))
 
+(defun org-reading-list-mi--href-bibid (href)
+  "Return the bib id (\"bNNNNNNN\") embedded in HREF, or nil."
+  (when (and href
+             (string-match "\\.?\\(b[0-9]+\\)" href))
+    (match-string 1 href)))
+
+(defun org-reading-list-mi--results-candidates (dom)
+  "Collect search candidates from results-page DOM.
+Return a list of plists (:title :author :year :bibid), one per row
+that links to a bib record, capped at `org-reading-list-mi-max-results'."
+  (let (cands)
+    (catch 'done
+      (dolist (a (dom-by-tag dom 'a))
+        (let ((bibid (org-reading-list-mi--href-bibid (dom-attr a 'href)))
+              (title (string-trim (dom-text a))))
+          (when (and bibid (not (string-empty-p title))
+                     (not (seq-find
+                           (lambda (c) (equal (plist-get c :bibid) bibid))
+                           cands)))
+            (push (list :title title :author nil :year nil :bibid bibid)
+                  cands)
+            (when (>= (length cands) org-reading-list-mi-max-results)
+              (throw 'done nil))))))
+    (nreverse cands)))
+
 (provide 'org-reading-list-mi)
 ;;; org-reading-list-mi.el ends here
