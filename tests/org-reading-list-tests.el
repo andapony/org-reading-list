@@ -125,7 +125,19 @@
       (let ((v (org-reading-list--tag-vocabulary)))
         (should (member "gold_rush" v))
         (should (member "vigilance" v))
+        (should (member "waterfront" v))
         (should (member "extra" v))))))
+
+(ert-deftest org-reading-list-test-tag-vocabulary-filters-groups ()
+  (with-temp-buffer
+    (insert "#+TAGS: { waterfront : ships harbor }\n")
+    (org-mode)
+    (org-set-regexps-and-options)
+    (let ((v (org-reading-list--tag-vocabulary)))
+      (should (seq-every-p #'stringp v))
+      (should (member "ships" v))
+      (should (member "harbor" v)))))
+
 
 ;;;; Cite keys
 
