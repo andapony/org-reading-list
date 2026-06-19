@@ -13,10 +13,23 @@
 (require 'org-reading-list-mi)
 (require 'cl-lib)
 
+(defun org-reading-list-mi-test--parse-xml (s)
+  "Parse string S as XML and return its DOM."
+  (with-temp-buffer
+    (insert s)
+    (libxml-parse-xml-region (point-min) (point-max))))
+
+(defun org-reading-list-mi-test--parse-html (s)
+  "Parse string S as HTML and return its DOM."
+  (with-temp-buffer
+    (insert s)
+    (libxml-parse-html-region (point-min) (point-max))))
+
 (ert-deftest org-reading-list-mi-test-defcustoms ()
   (should (stringp org-reading-list-mi-search-url))
-  (should (string-match-p "%s.*%s" org-reading-list-mi-search-url))
-  (should (string-match-p "search.milibrary.org" org-reading-list-mi-marc-url))
+  (should (string-match-p "searchtype=X" org-reading-list-mi-search-url))
+  (should (string-match-p "%s" org-reading-list-mi-search-url))
+  (should (string-match-p "search.milibrary.org" org-reading-list-mi-xrecord-url))
   (should (equal org-reading-list-mi-holdings-code "MILIB"))
   (should (integerp org-reading-list-mi-max-results)))
 
@@ -31,101 +44,100 @@
     (let ((dom (org-reading-list-mi--fetch-html "https://example/")))
       (should (equal (dom-text (dom-by-id dom "x")) "hi")))))
 
-(defconst org-reading-list-mi-test--marc-text
-  "LEADER 00000cam  2200000 a 4500
-001    44669515
-003    OCoLC
-008    000718s2000    nyu           000 0 eng
-010    |a   00059095
-020    |a 0375505415|q (alk. paper)
-020    |a 9780375505416|q (alk. paper)
-035    |a (OCoLC)44669515
-082 04 |a 973.92|2 21
-092    |a 973.92|b N53
-100 1  |a Remnick, David.
-245 14 |a The new gilded age :|b the New Yorker looks at the culture of affluence /|c edited by David Remnick.
-264  1 |a New York :|b Random House,|c 2000.
-300    |a xiii, 432 pages ;|c 25 cm
-520    |a Thirty-three essays explore the culture of affluence.
-650  0 |a Popular culture|z United States.
-700 1  |a Remnick, David."
-  "Representative WebPAC labeled-MARC display text.")
+;;;; xrecord XML -> MARC record mapping
 
-(ert-deftest org-reading-list-mi-test-parse-marc-control-field ()
-  (let ((rec (org-reading-list-mi--parse-marc
-              org-reading-list-mi-test--marc-text)))
-    ;; Control field 001 has no subfields; its value is the text.
-    (should (equal (org-reading-list--marc-field rec "001") "44669515"))))
+(defconst org-reading-list-mi-test--xrecord-xml
+  "<IIIRECORD><TYPEINFO><BIBLIOGRAPHIC>
+<VARFLD><MARCINFO><MARCTAG>001</MARCTAG></MARCINFO><MARCFIXDATA>44669515</MARCFIXDATA></VARFLD>
+<VARFLD><MARCINFO><MARCTAG>020</MARCTAG><INDICATOR1> </INDICATOR1><INDICATOR2> </INDICATOR2></MARCINFO><MARCSUBFLD><SUBFIELDINDICATOR>a</SUBFIELDINDICATOR><SUBFIELDDATA>0375505415</SUBFIELDDATA></MARCSUBFLD></VARFLD>
+<VARFLD><MARCINFO><MARCTAG>092</MARCTAG></MARCINFO><MARCSUBFLD><SUBFIELDINDICATOR>a</SUBFIELDINDICATOR><SUBFIELDDATA>973.92</SUBFIELDDATA></MARCSUBFLD><MARCSUBFLD><SUBFIELDINDICATOR>b</SUBFIELDINDICATOR><SUBFIELDDATA>N53</SUBFIELDDATA></MARCSUBFLD></VARFLD>
+<VARFLD><MARCINFO><MARCTAG>245</MARCTAG><INDICATOR1>1</INDICATOR1><INDICATOR2>4</INDICATOR2></MARCINFO><MARCSUBFLD><SUBFIELDINDICATOR>a</SUBFIELDINDICATOR><SUBFIELDDATA>The new gilded age :</SUBFIELDDATA></MARCSUBFLD><MARCSUBFLD><SUBFIELDINDICATOR>b</SUBFIELDINDICATOR><SUBFIELDDATA>the New Yorker looks at the culture of affluence /</SUBFIELDDATA></MARCSUBFLD></VARFLD>
+<VARFLD><MARCINFO><MARCTAG>520</MARCTAG></MARCINFO><MARCSUBFLD><SUBFIELDINDICATOR>a</SUBFIELDINDICATOR><SUBFIELDDATA>Thirty-three essays explore the culture of affluence.</SUBFIELDDATA></MARCSUBFLD></VARFLD>
+</BIBLIOGRAPHIC></TYPEINFO></IIIRECORD>"
+  "Trimmed Innovative Interfaces xrecord XML for one bib record.")
 
-(ert-deftest org-reading-list-mi-test-parse-marc-subfields ()
-  (let ((rec (org-reading-list-mi--parse-marc
-              org-reading-list-mi-test--marc-text)))
+(ert-deftest org-reading-list-mi-test-xrecord-to-record ()
+  (let ((rec (org-reading-list-mi--xrecord-to-record
+              (org-reading-list-mi-test--parse-xml
+               org-reading-list-mi-test--xrecord-xml))))
     (should (equal (org-reading-list--marc-field rec "245" "a" "b")
                    "The new gilded age : the New Yorker looks at the culture of affluence /"))
-    (should (member "9780375505416"
-                    (org-reading-list--marc-isbns rec "a")))
-    (should (equal (org-reading-list--marc-field rec "010") "00059095"))
-    (should (equal (org-reading-list--marc-field rec "100")
-                   "Remnick, David."))
+    (should (member "0375505415" (org-reading-list--marc-isbns rec "a")))
     (should (equal (org-reading-list--marc-field rec "092" "a" "b")
-                   "973.92 N53"))))
+                   "973.92 N53"))
+    ;; A control field (no subfields) is skipped.
+    (should-not (org-reading-list--marc-field rec "001"))))
 
-(ert-deftest org-reading-list-mi-test-parse-marc-indicators ()
-  (let* ((rec (org-reading-list-mi--parse-marc
-               org-reading-list-mi-test--marc-text))
-         (df (seq-find (lambda (d) (equal (dom-attr d 'tag) "082"))
+(ert-deftest org-reading-list-mi-test-xrecord-indicators ()
+  (let* ((rec (org-reading-list-mi--xrecord-to-record
+               (org-reading-list-mi-test--parse-xml
+                org-reading-list-mi-test--xrecord-xml)))
+         (df (seq-find (lambda (d) (equal (dom-attr d 'tag) "245"))
                        (dom-by-tag rec 'datafield))))
-    (should (equal (dom-attr df 'ind1) "0"))
+    (should (equal (dom-attr df 'ind1) "1"))
     (should (equal (dom-attr df 'ind2) "4"))))
 
-(ert-deftest org-reading-list-mi-test-parse-marc-empty ()
-  (should-not (org-reading-list-mi--parse-marc "no marc here\njust text")))
+(ert-deftest org-reading-list-mi-test-bib-record-fetches-xrecord ()
+  (cl-letf (((symbol-function 'org-reading-list--fetch-xml)
+             (lambda (url)
+               (should (string-match-p "xrecord=b1146522" url))
+               (org-reading-list-mi-test--parse-xml
+                org-reading-list-mi-test--xrecord-xml))))
+    (let ((rec (org-reading-list-mi--bib-record "b1146522")))
+      (should (equal (org-reading-list--marc-field rec "245" "a")
+                     "The new gilded age :")))))
+
+;;;; Keyword search-results parsing
 
 (defconst org-reading-list-mi-test--results-html
-  "<table class=\"browseResult\">
-     <tr class=\"browseEntry\">
-       <td><a href=\"/record=b1146522~S1\">The new gilded age</a></td>
-       <td>2000</td></tr>
-     <tr class=\"browseEntry\">
-       <td><a href=\"/search?/.b1234567/.b1234567/1,1,1,B/frameset\">Moby Dick in Manhattan</a></td>
-       <td>1994</td></tr>
-   </table>"
-  "Trimmed WebPAC results markup with two entries.")
+  "<div class=\"briefcitCell\">
+     <div class=\"briefcitMark\"><input type=\"checkbox\" name=\"save\" value=\"b1146522\"></div>
+     <div class=\"briefcitTitle\"><a href=\"/search?/X/frameset\">The new gilded age</a></div>
+     <div class=\"briefcitAuthor\"><a href=\"/x\">Remnick, David</a></div>
+   </div>
+   <div class=\"briefcitCell\">
+     <div class=\"briefcitMark\"><input type=\"checkbox\" name=\"save\" value=\"b1243827\"></div>
+     <div class=\"briefcitTitle\"><a href=\"/x\">Moby-Dick, or, The whale</a></div>
+     <div class=\"briefcitAuthor\"><a href=\"/x\">Melville, Herman</a></div>
+   </div>"
+  "Trimmed MILibrary keyword brief-citation results, two rows.")
 
 (ert-deftest org-reading-list-mi-test-results-candidates ()
-  (let* ((dom (with-temp-buffer
-                (insert org-reading-list-mi-test--results-html)
-                (libxml-parse-html-region (point-min) (point-max))))
+  (let* ((dom (org-reading-list-mi-test--parse-html
+               org-reading-list-mi-test--results-html))
          (cands (org-reading-list-mi--results-candidates dom)))
     (should (= (length cands) 2))
     (should (equal (plist-get (car cands) :bibid) "b1146522"))
     (should (equal (plist-get (car cands) :title) "The new gilded age"))
-    (should (equal (plist-get (cadr cands) :bibid) "b1234567"))))
+    (should (equal (plist-get (car cands) :author) "Remnick, David"))
+    (should (equal (plist-get (cadr cands) :bibid) "b1243827"))
+    (should (equal (plist-get (cadr cands) :title) "Moby-Dick, or, The whale"))))
 
 (ert-deftest org-reading-list-mi-test-results-candidates-cap ()
   (let ((org-reading-list-mi-max-results 1)
-        (dom (with-temp-buffer
-               (insert org-reading-list-mi-test--results-html)
-               (libxml-parse-html-region (point-min) (point-max)))))
+        (dom (org-reading-list-mi-test--parse-html
+              org-reading-list-mi-test--results-html)))
     (should (= (length (org-reading-list-mi--results-candidates dom)) 1))))
 
-(ert-deftest org-reading-list-mi-test-marc-text-from-pre ()
-  (let ((dom (with-temp-buffer
-               (insert "<html><body><pre>245 14 |a Hello /</pre></body></html>")
-               (libxml-parse-html-region (point-min) (point-max)))))
-    (should (string-match-p "245" (org-reading-list-mi--marc-text dom)))))
+(defconst org-reading-list-mi-test--single-html
+  "<html><body>
+     <td class=\"bibInfoLabel\">Title</td>
+     <td class=\"bibInfoData\"><strong>Buried ships of San Francisco</strong></td>
+     <a href=\"/record=b1275806\">Permalink</a>
+   </body></html>"
+  "Trimmed single-record page (a unique search jumps straight to it).")
 
-(ert-deftest org-reading-list-mi-test-bib-record-chains ()
-  (cl-letf (((symbol-function 'org-reading-list-mi--fetch-html)
-             (lambda (url)
-               (should (string-match-p "marc~b1146522" url))
-               (with-temp-buffer
-                 (insert "<html><body><pre>"
-                         org-reading-list-mi-test--marc-text
-                         "</pre></body></html>")
-                 (libxml-parse-html-region (point-min) (point-max))))))
-    (let ((rec (org-reading-list-mi--bib-record "b1146522")))
-      (should (equal (org-reading-list--marc-field rec "001") "44669515")))))
+(ert-deftest org-reading-list-mi-test-results-candidates-single-record ()
+  ;; No brief-citation rows: fall back to the single-record page.
+  (let* ((dom (org-reading-list-mi-test--parse-html
+               org-reading-list-mi-test--single-html))
+         (cands (org-reading-list-mi--results-candidates dom)))
+    (should (= (length cands) 1))
+    (should (equal (plist-get (car cands) :bibid) "b1275806"))
+    (should (equal (plist-get (car cands) :title)
+                   "Buried ships of San Francisco"))))
+
+;;;; Data build and update
 
 (ert-deftest org-reading-list-mi-test-better-abstract ()
   (should (equal (org-reading-list-mi--better-abstract nil "x") "x"))
@@ -138,8 +150,10 @@
                  "much longer one")))
 
 (ert-deftest org-reading-list-mi-test-callno ()
-  (let ((rec (org-reading-list-mi--parse-marc
-              org-reading-list-mi-test--marc-text)))
+  (let ((rec '(record nil
+                      (datafield ((tag . "092") (ind1 . "") (ind2 . ""))
+                                 (subfield ((code . "a")) "973.92")
+                                 (subfield ((code . "b")) "N53")))))
     (should (equal (org-reading-list-mi--callno rec) "973.92 N53"))))
 
 (ert-deftest org-reading-list-mi-test-entry-data-mi-only ()
@@ -218,7 +232,6 @@
         (should (equal (cdr (assoc "HOLDINGS" props)) "MILIB"))
         (should (equal (cdr (assoc "CALLNO" props)) "MILIB 973.92 N53"))))))
 
-
 (ert-deftest org-reading-list-mi-test-apply-update-enrich-empty ()
   (with-temp-buffer
     (org-mode)
@@ -280,9 +293,6 @@
         (org-reading-list-mi--apply-update data))
       (should (equal (org-entry-get nil "CALLNO") "MILIB 222 A1")))))
 
-
-
-
 (ert-deftest org-reading-list-mi-test-apply-update-overwrite-confirmed ()
   (with-temp-buffer
     (org-mode)
@@ -318,12 +328,19 @@
     (goto-char (point-min))
     (cl-letf (((symbol-function 'org-reading-list-mi--search-candidates)
                (lambda (&rest _)
-                 (list (list :title "The new gilded age" :author nil
+                 (list (list :title "The new gilded age" :author "Remnick, David"
                              :year nil :bibid "b1146522"))))
               ((symbol-function 'org-reading-list-mi--bib-record)
                (lambda (_)
-                 (org-reading-list-mi--parse-marc
-                  org-reading-list-mi-test--marc-text)))
+                 '(record nil
+                          (datafield ((tag . "020") (ind1 . "") (ind2 . ""))
+                                     (subfield ((code . "a")) "0375505415"))
+                          (datafield ((tag . "092") (ind1 . "") (ind2 . ""))
+                                     (subfield ((code . "a")) "973.92")
+                                     (subfield ((code . "b")) "N53"))
+                          (datafield ((tag . "520") (ind1 . "") (ind2 . ""))
+                                     (subfield ((code . "a"))
+                                               "Thirty-three essays explore the culture.")))))
               ;; Stub the OL/LoC base so the ISBN bridge stays offline.
               ((symbol-function 'org-reading-list--entry-data)
                (lambda (&rest _)

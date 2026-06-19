@@ -12,11 +12,14 @@
 ;;; Commentary:
 
 ;; Discovery search against the Mechanics' Institute Library catalog
-;; (milibrary.org).  Search the classic WebPAC by title (or another
-;; index), pick a result, and capture it into the reading list or enrich
-;; an existing heading.  MI's plain-text MARC is parsed into the same
-;; record shape the Library of Congress code in org-reading-list.el uses,
-;; so the MARC field extractors and entry builders are shared.
+;; (milibrary.org).  Search the catalog by keyword (title-scoped by
+;; default), pick a result, and capture it into the reading list or
+;; enrich an existing heading.  Results come from the keyword results
+;; page, where each row carries a stable bib id; the bibliographic
+;; record is then fetched as structured XML from the /xrecord= endpoint
+;; and mapped into the same record shape the Library of Congress code in
+;; org-reading-list.el uses, so the MARC field extractors and entry
+;; builders are shared.
 
 ;;; Code:
 
@@ -25,10 +28,11 @@
 (require 'cl-lib)
 
 (defcustom org-reading-list-mi-search-url
-  "https://search.milibrary.org/search~S1/?searchtype=%s&searcharg=%s&searchscope=1&SORT=D"
-  "Search template for the Mechanics' Institute WebPAC.
-The first %s is the index code (see `org-reading-list-mi-indexes'),
-the second the url-encoded query."
+  "https://search.milibrary.org/search~S1/?searchtype=X&searcharg=%s&searchscope=1&SORT=D"
+  "Keyword-search template for the Mechanics' Institute WebPAC.
+The single %s is the url-encoded search argument.  Index scoping is
+applied by `org-reading-list-mi--search-candidates' using the catalog's
+keyword field syntax, e.g. \"t:(...)\" for a title-scoped search."
   :type 'string
   :group 'org-reading-list)
 
@@ -38,10 +42,11 @@ the second the url-encoded query."
   :type 'string
   :group 'org-reading-list)
 
-(defcustom org-reading-list-mi-marc-url
-  "https://search.milibrary.org/search~S1?/.%1$s/.%1$s/1,1,1,B/marc~%1$s"
-  "MARC-display URL template for a MILibrary bib id.
-The single bib id fills every %1$s; the page is plain-text MARC."
+(defcustom org-reading-list-mi-xrecord-url
+  "https://search.milibrary.org/xrecord=%s"
+  "XML-record endpoint template for a MILibrary bib id.
+Returns the bib record as Innovative Interfaces XML, which
+`org-reading-list-mi--xrecord-to-record' maps to a MARC record node."
   :type 'string
   :group 'org-reading-list)
 
@@ -58,8 +63,9 @@ for completion by `org-reading-list-set-holdings'."
   :group 'org-reading-list)
 
 (defconst org-reading-list-mi-indexes
-  '(("title" . "t") ("author" . "a") ("keyword" . "X") ("ISBN" . "i"))
-  "Search-index labels mapped to WebPAC `searchtype' codes.")
+  '(("title" . "t") ("author" . "a") ("keyword" . nil) ("ISBN" . "i"))
+  "Search-index labels mapped to WebPAC keyword field codes.
+A nil code means an unscoped keyword search.")
 
 (defun org-reading-list-mi--fetch-html (url)
   "GET URL and parse the response body as HTML; return a DOM, or nil."
@@ -71,83 +77,117 @@ for completion by `org-reading-list-set-holdings'."
               (libxml-parse-html-region (point-min) (point-max))))
         (kill-buffer buf)))))
 
-(defun org-reading-list-mi--parse-field (tag indicators body)
-  "Build a datafield DOM node from TAG, INDICATORS, and BODY.
-TAG is a 3-character string; INDICATORS is the two-character
-indicator string; BODY is the field text.  A BODY containing
-subfield delimiters (\"\\|c value\") becomes coded subfields;
-otherwise the whole BODY is one anonymous subfield (control fields)."
-  (let* ((ind1 (if (> (length indicators) 0)
-                   (string-trim (substring indicators 0 1)) ""))
-         (ind2 (if (> (length indicators) 1)
-                   (string-trim (substring indicators 1 2)) ""))
-         (subs (if (string-match-p "|" body)
-                   (mapcar
-                    (lambda (chunk)
-                      (let ((code (substring chunk 0 1))
-                            (val (string-trim (substring chunk 1))))
-                        `(subfield ((code . ,code)) ,val)))
-                    ;; Split on the delimiter; leading | means first part is removed.
-                    (split-string body "|" t))
-                 (list `(subfield ((code . "a")) ,(string-trim body))))))
-    `(datafield ((tag . ,tag) (ind1 . ,ind1) (ind2 . ,ind2)) ,@subs)))
+(defun org-reading-list-mi--xrecord-subfields (varfld)
+  "Return the MARC subfields of Innovative Interfaces VARFLD.
+Each MARCSUBFLD becomes a (subfield ((code . C)) DATA) node; subfields
+without a code are dropped."
+  (delq nil
+        (mapcar
+         (lambda (sf)
+           (let ((code (string-trim
+                        (dom-text (car (dom-by-tag sf 'SUBFIELDINDICATOR)))))
+                 (val (string-trim
+                       (dom-text (car (dom-by-tag sf 'SUBFIELDDATA))))))
+             (unless (string-empty-p code)
+               `(subfield ((code . ,code)) ,val))))
+         (dom-by-tag varfld 'MARCSUBFLD))))
 
-(defun org-reading-list-mi--parse-marc (text)
-  "Parse WebPAC labeled-MARC TEXT into a `record' DOM node, or nil.
-Each line beginning with a 3-digit tag becomes a datafield in the
-same shape the Library of Congress MARCXML helpers consume, so the
-existing extractors in org-reading-list.el work on the result.
-Return nil when TEXT contains no tagged fields."
+(defun org-reading-list-mi--xrecord-to-record (dom)
+  "Map an Innovative Interfaces xrecord DOM to a MARC `record' node.
+Each VARFLD with subfields becomes a datafield carrying the same tag,
+indicators, and subfield codes the Library of Congress MARCXML helpers
+read, so the existing extractors in org-reading-list.el work unchanged.
+Fixed and control fields (no subfields) are skipped.  Return nil when
+no variable fields are found."
   (let (fields)
-    (dolist (line (split-string text "[\n\r]+" t))
-      (when (string-match
-             "\\`\\([0-9][0-9][0-9]\\) ?\\(..\\)? ?\\(.*\\)\\'" line)
-        (let ((tag (match-string 1 line))
-              (ind (or (match-string 2 line) ""))
-              (body (or (match-string 3 line) "")))
-          (push (org-reading-list-mi--parse-field tag ind body) fields))))
+    (dolist (vf (dom-by-tag dom 'VARFLD))
+      (let* ((info (car (dom-by-tag vf 'MARCINFO)))
+             (tag (and info
+                       (string-trim
+                        (dom-text (car (dom-by-tag info 'MARCTAG))))))
+             (ind1 (and info
+                        (string-trim
+                         (dom-text (car (dom-by-tag info 'INDICATOR1))))))
+             (ind2 (and info
+                        (string-trim
+                         (dom-text (car (dom-by-tag info 'INDICATOR2))))))
+             (subs (org-reading-list-mi--xrecord-subfields vf)))
+        (when (and tag (not (string-empty-p tag)) subs)
+          (push `(datafield ((tag . ,tag)
+                             (ind1 . ,(or ind1 ""))
+                             (ind2 . ,(or ind2 "")))
+                            ,@subs)
+                fields))))
     (when fields
       `(record nil ,@(nreverse fields)))))
 
-(defun org-reading-list-mi--href-bibid (href)
-  "Return the bib id (\"bNNNNNNN\") embedded in HREF, or nil."
-  (when (and href
-             (string-match "\\.?\\(b[0-9]+\\)" href))
-    (match-string 1 href)))
+(defun org-reading-list-mi--bib-record (bibid)
+  "Fetch the III xrecord for BIBID and map it to a MARC record, or nil."
+  (let ((dom (org-reading-list--fetch-xml
+              (format org-reading-list-mi-xrecord-url bibid))))
+    (and dom (org-reading-list-mi--xrecord-to-record dom))))
+
+(defun org-reading-list-mi--node-class-text (node class)
+  "Return the text of NODE's first descendant with CSS CLASS, or nil.
+Text nested in inline elements (e.g. a wrapping anchor) is included;
+internal runs of whitespace are collapsed to single spaces."
+  (let ((d (car (dom-by-class node class))))
+    (and d (let ((s (string-trim
+                     (replace-regexp-in-string "[ \t\n\r]+" " " (dom-texts d)))))
+             (unless (string-empty-p s) s)))))
+
+(defun org-reading-list-mi--row-bibid (row)
+  "Return the bib id from ROW's save checkbox, or nil.
+ROW is a brief-citation result node; its `save' input value is a bib
+id of the form \"bNNNNNNN\"."
+  (seq-some
+   (lambda (input)
+     (and (equal (dom-attr input 'name) "save")
+          (let ((v (dom-attr input 'value)))
+            (and v (string-match-p "\\`b[0-9]+\\'" v) v))))
+   (dom-by-tag row 'input)))
+
+(defun org-reading-list-mi--single-record-bibid (dom)
+  "Return the bib id of a single-record page DOM, or nil.
+A unique search lands on the record page; its permalink href carries
+\"record=bNNNNNNN\"."
+  (seq-some
+   (lambda (a)
+     (let ((h (dom-attr a 'href)))
+       (and h (string-match "record=\\(b[0-9]+\\)" h) (match-string 1 h))))
+   (dom-by-tag dom 'a)))
 
 (defun org-reading-list-mi--results-candidates (dom)
-  "Collect search candidates from results-page DOM.
-Return a list of plists (:title :author :year :bibid), one per row
-that links to a bib record, capped at `org-reading-list-mi-max-results'."
-  (let (cands)
-    (catch 'done
-      (dolist (a (dom-by-tag dom 'a))
-        (let ((bibid (org-reading-list-mi--href-bibid (dom-attr a 'href)))
-              (title (string-trim (dom-text a))))
-          (when (and bibid (not (string-empty-p title))
-                     (not (seq-find
-                           (lambda (c) (equal (plist-get c :bibid) bibid))
-                           cands)))
-            (push (list :title title :author nil :year nil :bibid bibid)
-                  cands)
-            (when (>= (length cands) org-reading-list-mi-max-results)
-              (throw 'done nil))))))
+  "Parse a MILibrary keyword-results DOM into candidate plists.
+Return a list of plists (:title :author :year :bibid), one per
+brief-citation row, capped at `org-reading-list-mi-max-results'.  When
+the search matched a single record (the catalog shows the record page
+directly) return one candidate built from that page."
+  (let ((rows (dom-by-class dom "briefcitCell"))
+        cands)
+    (if rows
+        (catch 'done
+          (dolist (row rows)
+            (let ((bibid (org-reading-list-mi--row-bibid row))
+                  (title (org-reading-list-mi--node-class-text
+                          row "briefcitTitle")))
+              (when (and bibid title)
+                (push (list :title title
+                            :author (org-reading-list-mi--node-class-text
+                                     row "briefcitAuthor")
+                            :year nil :bibid bibid)
+                      cands)
+                (when (>= (length cands) org-reading-list-mi-max-results)
+                  (throw 'done nil)))))
+          nil)
+      (let ((bibid (org-reading-list-mi--single-record-bibid dom)))
+        (when bibid
+          (push (list :title (or (org-reading-list-mi--node-class-text
+                                  dom "bibInfoData")
+                                 bibid)
+                      :author nil :year nil :bibid bibid)
+                cands))))
     (nreverse cands)))
-
-(defun org-reading-list-mi--marc-text (dom)
-  "Return the labeled-MARC text from a MARC-display DOM, or nil.
-Prefers the first <pre> block; falls back to the whole body text when
-no <pre> is present."
-  (let ((pre (car (dom-by-tag dom 'pre))))
-    (let ((text (if pre (dom-texts pre) (dom-texts dom))))
-      (and text (not (string-empty-p (string-trim text))) text))))
-
-(defun org-reading-list-mi--bib-record (bibid)
-  "Fetch and parse the MARC record for BIBID; return a record DOM or nil."
-  (let* ((url (format org-reading-list-mi-marc-url bibid))
-         (dom (org-reading-list-mi--fetch-html url))
-         (text (and dom (org-reading-list-mi--marc-text dom))))
-    (and text (org-reading-list-mi--parse-marc text))))
 
 (defun org-reading-list-mi--better-abstract (a b)
   "Return the more informative of abstracts A and B, or nil.
@@ -238,7 +278,6 @@ appended.  Returns the merged string."
                     parts)))
       (string-join (if replaced merged (append merged (list pair))) "; "))))
 
-
 (defun org-reading-list-mi--apply-update (data)
   "Update the Org entry at point from entry-data DATA.
 Adds the MILIB holdings code and call number, fills empty properties,
@@ -272,18 +311,20 @@ confirmation.  Return the list of property names changed."
               (push name changed)))))))
     (nreverse changed)))
 
-(defun org-reading-list-mi--search-candidates (index query)
-  "Return MILibrary candidates for QUERY under search INDEX code.
-INDEX is a WebPAC `searchtype' code; QUERY is the raw search string."
-  (let* ((url (format org-reading-list-mi-search-url
-                      index (url-hexify-string query)))
+(defun org-reading-list-mi--search-candidates (field query)
+  "Return MILibrary candidates for QUERY in keyword FIELD.
+FIELD is a keyword field code (e.g. \"t\", \"a\", \"i\") that scopes the
+search, or nil for an unscoped keyword search.  Signal a `user-error'
+on no response or no results."
+  (let* ((arg (if field (format "%s:(%s)" field query) query))
+         (url (format org-reading-list-mi-search-url (url-hexify-string arg)))
          (dom (or (org-reading-list-mi--fetch-html url)
                   (user-error "No response from MILibrary for %s" query))))
     (or (org-reading-list-mi--results-candidates dom)
         (user-error "No MILibrary results for %s" query))))
 
 (defun org-reading-list-mi--read-index ()
-  "Prompt for a search index; return its WebPAC `searchtype' code."
+  "Prompt for a search index; return its keyword field code, or nil."
   (cdr (assoc (completing-read "Search by: "
                                (mapcar #'car org-reading-list-mi-indexes)
                                nil t nil nil "title")
@@ -294,8 +335,8 @@ INDEX is a WebPAC `searchtype' code; QUERY is the raw search string."
   (let* ((labels (mapcar
                   (lambda (c)
                     (cons (concat (plist-get c :title)
-                                  (let ((y (plist-get c :year)))
-                                    (if y (format " (%s)" y) "")))
+                                  (let ((a (plist-get c :author)))
+                                    (if a (format " - %s" a) "")))
                           (plist-get c :bibid)))
                   candidates))
          (pick (completing-read "MILibrary result: " labels nil t)))
@@ -320,7 +361,7 @@ Signal a `user-error' when the entry has neither to search by."
 (defun org-reading-list-mi-enrich ()
   "Enrich the Org entry at point from its MILibrary record.
 Looks the entry up in MILibrary by :ISBN: (or :TITLE:), fetches the
-matching record's MARC, and applies the update: add the MILIB holdings
+matching record as XML, and applies the update: add the MILIB holdings
 code and call number, fill empty properties, and refresh differing
 properties on confirmation.  Signal a `user-error' when no MILibrary
 record is found."
@@ -340,15 +381,15 @@ record is found."
   "Search MILibrary, pick a result, and capture or update it.
 Prompts for a title query (with a prefix arg CHOOSE-INDEX, first pick
 the search index: title, author, keyword, or ISBN).  The chosen
-record's MARC is fetched and turned into a reading-list entry: a new
+record is fetched as XML and turned into a reading-list entry: a new
 heading under `org-reading-list-headline', or, when the book is already
 in `org-reading-list-file', an in-place update (MI holdings and call
 number added, empty fields filled, differing fields refreshed on
 confirmation).  Point is left on the entry."
   (interactive "P")
-  (let* ((index (if choose-index (org-reading-list-mi--read-index) "t"))
+  (let* ((field (if choose-index (org-reading-list-mi--read-index) "t"))
          (query (read-string "MILibrary search: "))
-         (candidates (org-reading-list-mi--search-candidates index query))
+         (candidates (org-reading-list-mi--search-candidates field query))
          (bibid (org-reading-list-mi--choose candidates))
          (rec (or (org-reading-list-mi--bib-record bibid)
                   (user-error "No MARC record for %s" bibid)))
