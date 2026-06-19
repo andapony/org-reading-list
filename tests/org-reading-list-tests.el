@@ -169,6 +169,33 @@
     ;; dedup, sort, cap at 2 -> ("a" "b")
     (should (equal (car res) '("a" "b")))))
 
+(defmacro org-reading-list-test--with-list (&rest body)
+  "Set up a temp reading-list buffer with two book entries, then run BODY."
+  `(with-temp-buffer
+     (insert "#+TAGS: gold_rush vigilance\n* Books\n"
+             "** TOREAD A :gold_discoveries:history:\n:PROPERTIES:\n:BTYPE: book\n:END:\n"
+             "** TOREAD B :unmapped_thing:\n:PROPERTIES:\n:BTYPE: book\n:END:\n")
+     (org-mode)
+     (org-set-regexps-and-options)
+     (let ((org-reading-list-tag-rewrites
+            '(("gold_discoveries" . "gold_rush") ("history" . nil))))
+       ,@body)))
+
+(ert-deftest org-reading-list-test-lint-collect ()
+  (org-reading-list-test--with-list
+   (let ((data (org-reading-list--lint-collect)))
+     (should (= (length data) 2))
+     (let ((a (car data)) (b (cadr data)))
+       (should (equal (plist-get a :new) '("gold_rush")))
+       (should-not (plist-get a :thin))
+       ;; B: unmapped_thing has no home -> dropped-unresolved, 0 tags, thin
+       (should (equal (plist-get b :new) nil))
+       (should (plist-get b :thin))
+       (should (equal (plist-get (plist-get b :record) :dropped-unresolved)
+                      '("unmapped_thing")))))))
+
+
+
 
 
 

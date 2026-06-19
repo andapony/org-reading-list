@@ -423,6 +423,54 @@ and :dropped-unresolved."
                 :dropped-explicit (nreverse dropped-explicit)
                 :dropped-unresolved (nreverse dropped-unresolved)))))
 
+(defun org-reading-list--lint-collect ()
+  "Collect tag-preen diagnostics for book entries in the current buffer.
+Return a list of plists, one per heading with a non-empty :BTYPE:, with
+keys :heading, :current, :new, :record (from
+`org-reading-list--rewrite-tags'), and :thin (non-nil when the new tag
+count is below `org-reading-list-tag-min')."
+  (let ((vocab (org-reading-list--tag-vocabulary))
+        (rewrites org-reading-list-tag-rewrites)
+        results)
+    (org-map-entries
+     (lambda ()
+       (let* ((cur (org-get-tags nil t))
+              (res (org-reading-list--rewrite-tags cur vocab rewrites)))
+         (push (list :heading (org-get-heading t t t t)
+                     :current cur :new (car res) :record (cdr res)
+                     :thin (< (length (car res)) org-reading-list-tag-min))
+               results)))
+     "BTYPE={.}")
+    (nreverse results)))
+
+;;;###autoload
+(defun org-reading-list-lint-tags ()
+  "Report how `org-reading-list-preen-tags' would change tags in the buffer.
+List, per book entry, the rewrites and drops that would apply and flag
+entries left below `org-reading-list-tag-min'.  Modify nothing."
+  (interactive)
+  (let ((data (org-reading-list--lint-collect))
+        (buf (get-buffer-create "*org-reading-list-tags*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (dolist (e data)
+          (let ((rec (plist-get e :record)))
+            (insert (format "%s%s\n" (plist-get e :heading)
+                            (if (plist-get e :thin) "   [THIN]" ""))
+                    (format "  %s -> %s\n"
+                            (or (plist-get e :current) "()")
+                            (or (plist-get e :new) "()"))
+                    (if (plist-get rec :dropped-unresolved)
+                        (format "  unresolved (need a rewrite or vocab entry): %s\n"
+                                (plist-get rec :dropped-unresolved))
+                      ""))))
+        (goto-char (point-min))
+        (special-mode)))
+    (display-buffer buf)))
+
+
+
 
 
 ;;;; Entry construction
