@@ -443,6 +443,21 @@ count is below `org-reading-list-tag-min')."
      "BTYPE={.}")
     (nreverse results)))
 
+(defun org-reading-list--infer-merge (new vocab ctx)
+  "Add inferred vocabulary tags to NEW when it is below the minimum.
+When `org-reading-list-tag-infer-function' is set and NEW has fewer than
+`org-reading-list-tag-min' tags, call it with context plist CTX and add
+the returned tags that are in VOCAB.  Return the merged, sorted, capped
+list, or NEW unchanged."
+  (if (and org-reading-list-tag-infer-function
+           (< (length new) org-reading-list-tag-min))
+      (let ((added (seq-filter (lambda (x) (member x vocab))
+                               (funcall org-reading-list-tag-infer-function ctx))))
+        (seq-take (sort (delete-dups (append new added)) #'string<)
+                  org-reading-list-max-tags))
+    new))
+
+
 ;;;###autoload
 (defun org-reading-list-lint-tags ()
   "Report how `org-reading-list-preen-tags' would change tags in the buffer.
@@ -471,9 +486,18 @@ entries left below `org-reading-list-tag-min'.  Modify nothing."
 
 (defun org-reading-list--preen-entry (vocab rewrites)
   "Preen the tags of the Org entry at point against VOCAB and REWRITES.
-Set the entry's tags to the rewritten set and return them."
-  (let ((new (car (org-reading-list--rewrite-tags
-                   (org-get-tags nil t) vocab rewrites))))
+Rewrite the tags, then add inferred tags via `org-reading-list--infer-merge'
+when the result is below `org-reading-list-tag-min'.  Set the entry's
+tags and return them."
+  (let* ((new (car (org-reading-list--rewrite-tags
+                    (org-get-tags nil t) vocab rewrites)))
+         (ctx (list :heading (org-get-heading t t t t)
+                    :title (org-entry-get nil "TITLE")
+                    :abstract (org-entry-get nil "ABSTRACT")
+                    :body (org-get-entry)
+                    :tags new
+                    :vocabulary vocab)))
+    (setq new (org-reading-list--infer-merge new vocab ctx))
     (org-set-tags new)
     new))
 

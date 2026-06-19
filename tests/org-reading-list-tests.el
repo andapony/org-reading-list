@@ -217,6 +217,19 @@
    (re-search-forward "^\\*\\* TOREAD A")
    (should (equal (org-get-tags nil t) '("gold_rush")))))
 
+(ert-deftest org-reading-list-test-preen-infer-hook ()
+  (org-reading-list-test--with-list
+   (goto-char (point-min))
+   (re-search-forward "^\\*\\* TOREAD B")   ; B preens to zero tags -> thin
+   (let ((vocab (org-reading-list--tag-vocabulary))
+         (org-reading-list-tag-min 1)
+         ;; Hook returns one in-vocab tag and one bogus tag (dropped).
+         (org-reading-list-tag-infer-function
+          (lambda (_ctx) '("vigilance" "bogus_not_in_vocab"))))
+     (org-reading-list--preen-entry vocab org-reading-list-tag-rewrites)
+     (should (equal (org-get-tags nil t) '("vigilance"))))))
+
+
 
 
 
