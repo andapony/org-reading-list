@@ -501,6 +501,29 @@ tags and return them."
     (org-set-tags new)
     new))
 
+(defun org-reading-list--preen-data (data)
+  "Return DATA with its :tags preened against the current buffer's vocabulary.
+DATA is an `org-reading-list--entry-data' plist.  The current buffer
+must be the target reading-list buffer (its #+TAGS: and file-local
+`org-reading-list-tag-rewrites' supply the vocabulary and map).  When the
+vocabulary is empty, return DATA unchanged.  When
+`org-reading-list-tag-infer-function' is set and the rewritten set is
+below `org-reading-list-tag-min', add the tags it returns."
+  (let ((vocab (org-reading-list--tag-vocabulary)))
+    (if (null vocab)
+        data
+      (let* ((new (car (org-reading-list--rewrite-tags
+                        (plist-get data :tags) vocab
+                        org-reading-list-tag-rewrites)))
+             (props (plist-get data :props))
+             (ctx (list :heading (plist-get data :title)
+                        :title (plist-get data :title)
+                        :abstract (cdr (assoc "ABSTRACT" props))
+                        :body nil :tags new :vocabulary vocab)))
+        (plist-put (copy-sequence data) :tags
+                   (org-reading-list--infer-merge new vocab ctx))))))
+
+
 ;;;###autoload
 (defun org-reading-list-preen-tags (&optional all)
   "Preen the tags of the Org entry at point to the controlled vocabulary.
@@ -1319,7 +1342,10 @@ instead of inserting."
                   (save-restriction
                     (widen)
                     (org-reading-list--insert-under-headline
-                     (org-reading-list--entry-string data)
+                     (org-reading-list--entry-string
+                      (if org-reading-list-preen-on-capture
+                          (org-reading-list--preen-data data)
+                        data))
                      org-reading-list-headline))))))
     (pop-to-buffer buf)
     (widen)
@@ -1350,7 +1376,10 @@ you are asked first; declining aborts the capture."
           (when (and dup (not (org-reading-list--confirm-duplicate dup)))
             (signal 'org-reading-list-duplicate
                     (list (plist-get (cdr dup) :heading))))
-          (org-reading-list--entry-string data))
+          (org-reading-list--entry-string
+           (if org-reading-list-preen-on-capture
+               (org-reading-list--preen-data data)
+             data)))
       (org-reading-list-duplicate
        (user-error "Already in list: %s" (cadr err)))
       (error

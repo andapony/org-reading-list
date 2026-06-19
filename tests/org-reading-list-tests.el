@@ -229,7 +229,24 @@
      (org-reading-list--preen-entry vocab org-reading-list-tag-rewrites)
      (should (equal (org-get-tags nil t) '("vigilance"))))))
 
+(ert-deftest org-reading-list-test-preen-data-rewrites ()
+  (with-temp-buffer
+    (insert "#+TAGS: gold_rush\n")
+    (org-mode)
+    (org-set-regexps-and-options)
+    (let ((org-reading-list-tag-rewrites
+           '(("gold_discoveries" . "gold_rush") ("history" . nil)))
+          (data (list :title "X" :props nil
+                      :tags '("gold_discoveries" "history"))))
+      (should (equal (plist-get (org-reading-list--preen-data data) :tags)
+                     '("gold_rush"))))))
 
+(ert-deftest org-reading-list-test-preen-data-no-vocab ()
+  (with-temp-buffer
+    (org-mode)                          ; no #+TAGS: -> empty vocabulary
+    (let ((data (list :title "X" :props nil :tags '("history"))))
+      (should (equal (plist-get (org-reading-list--preen-data data) :tags)
+                     '("history"))))))
 
 
 
