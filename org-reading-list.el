@@ -1607,8 +1607,39 @@ just as the point-based command would stamp them."
       (message "Added %d citekey(s)" added))
     added))
 
+(defun org-reading-list-link-follow (citekey &optional _arg)
+  "Visit the reading-list entry whose :CUSTOM_ID: is CITEKEY.
+Signal a `user-error' when no such entry exists."
+  (find-file org-reading-list-file)
+  (widen)
+  (let ((pos (org-find-property "CUSTOM_ID" citekey)))
+    (if pos
+        (progn (goto-char pos) (org-reveal))
+      (user-error "No reading-list entry with citekey %s" citekey))))
 
+(defun org-reading-list-link-export (citekey desc &optional _backend _info)
+  "Export an orl: link as DESC, else CITEKEY's entry label, else CITEKEY."
+  (or (and desc (not (string-blank-p desc)) desc)
+      (car (rassoc citekey (org-reading-list-entries)))
+      citekey))
 
+(defun org-reading-list-link-complete (&optional _arg)
+  "Return an \"orl:\" link string for an entry chosen with completion."
+  (let ((entries (org-reading-list-entries)))
+    (unless entries
+      (user-error "No reading-list entries with citekeys"))
+    (concat "orl:"
+            (cdr (assoc (completing-read "Book: " (mapcar #'car entries)
+                                         nil t)
+                        entries)))))
+
+;;;###autoload
+(eval-after-load 'org
+  '(org-link-set-parameters
+    "orl"
+    :follow #'org-reading-list-link-follow
+    :export #'org-reading-list-link-export
+    :complete #'org-reading-list-link-complete))
 
 (provide 'org-reading-list)
 ;;; org-reading-list.el ends here

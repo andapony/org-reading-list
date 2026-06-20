@@ -1384,6 +1384,33 @@ BODY may reference `file', the temp file's path."
     (re-search-forward "Anon Pamphlet")
     (should (equal (org-entry-get nil "CUSTOM_ID") "anon1850"))))
 
+(ert-deftest org-reading-list-test-link-export ()
+  "An orl: link exports as its description, else the entry label, else key."
+  (should (equal (org-reading-list-link-export "foote1963" "Foote" 'html)
+                 "Foote"))
+  (cl-letf (((symbol-function 'org-reading-list-entries)
+             (lambda () '(("Foote, The Civil War (1963)" . "foote1963")))))
+    (should (equal (org-reading-list-link-export "foote1963" nil 'html)
+                   "Foote, The Civil War (1963)"))
+    (should (equal (org-reading-list-link-export "ghost" nil 'html)
+                   "ghost"))))
+
+(ert-deftest org-reading-list-test-link-registered ()
+  "The orl link type is registered with org."
+  (should (org-link-get-parameter "orl" :follow))
+  (should (org-link-get-parameter "orl" :export)))
+
+(ert-deftest org-reading-list-test-link-complete ()
+  "Completion returns an orl: link for the chosen entry."
+  (cl-letf (((symbol-function 'org-reading-list-entries)
+             (lambda () '(("Foote, The Civil War (1963)" . "foote1963"))))
+            ((symbol-function 'completing-read)
+             (lambda (&rest _) "Foote, The Civil War (1963)")))
+    (should (equal (org-reading-list-link-complete) "orl:foote1963"))))
+
+
+
+
 
 
 
