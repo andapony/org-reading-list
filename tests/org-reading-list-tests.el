@@ -1371,6 +1371,20 @@ BODY may reference `file', the temp file's path."
       (should (member "foote1963a" keys))
       (should (= (length keys) 3)))))
 
+(ert-deftest org-reading-list-test-ensure-citekeys-stamps-authorless ()
+  "An authorless book entry is stamped; the list container is left alone."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n"
+            "** TOREAD Anon Pamphlet\n:PROPERTIES:\n:TITLE: Anon Pamphlet\n"
+            ":DATE: 1850\n:END:\n")
+    (should (= (org-reading-list-ensure-citekeys) 1))
+    (goto-char (point-min))
+    (should-not (org-entry-get nil "CUSTOM_ID"))
+    (re-search-forward "Anon Pamphlet")
+    (should (equal (org-entry-get nil "CUSTOM_ID") "anon1850"))))
+
+
 
 
 

@@ -1590,17 +1590,19 @@ already present in the current buffer, so a batch stamp cannot collide."
 ;;;###autoload
 (defun org-reading-list-ensure-citekeys ()
   "Stamp a :CUSTOM_ID: on every keyless book entry in the current buffer.
-Keyed entries are left untouched.  Return the number of keys added; when
-called interactively, report it.  Run this once to make legacy or
-hand-written entries citable from org-chronicle."
+Skips the list-container heading (`org-reading-list-headline') and any
+entry that already carries a :CUSTOM_ID:.  Returns the number of keys
+added; when called interactively, reports it.  Unlike the single-entry
+command, this visits every heading, so authorless entries are stamped
+just as the point-based command would stamp them."
   (interactive)
   (let ((added 0))
     (org-map-entries
      (lambda ()
-       (unless (org-entry-get nil "CUSTOM_ID")
+       (unless (or (equal (org-get-heading t t t t) org-reading-list-headline)
+                   (org-entry-get nil "CUSTOM_ID"))
          (org-reading-list-ensure-citekey)
-         (setq added (1+ added))))
-     "AUTHOR={.}")
+         (setq added (1+ added)))))
     (when (called-interactively-p 'interactive)
       (message "Added %d citekey(s)" added))
     added))
