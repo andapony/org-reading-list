@@ -1,4 +1,4 @@
-#+TITLE: SF-history reading list — tag preening sidecar
+#+TITLE: SF-history reading list — tag curation sidecar
 #+STARTUP: content
 #+OPTIONS: ^:{}
 
@@ -110,8 +110,9 @@ make a new mapping decision:
 #+end_src
 
 * Preen results — seed run [2026-06-19]
-Applied to the round-trip fetched tags (old/fetch-report.org). REVIEW = tags
-inferred from title/abstract rather than mapped from raw headings.
+A one-time record of the initial seed preen over the fetched subjects.
+REVIEW = tags inferred from title/abstract rather than mapped from raw
+subjects.
 
 | citekey       | new tags                              | note |
 |---------------+---------------------------------------+------|
