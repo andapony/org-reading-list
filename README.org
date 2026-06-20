@@ -274,6 +274,25 @@ Mechanics' Institute Library catalog (milibrary.org):
   fills empty fields from MARC, and offers to refresh any differing
   fields.
 
+* Citing books from org-chronicle
+
+When [[https://github.com/andapony/org-chronicle][org-chronicle]] is
+loaded, =M-x org-chronicle-add-source= completes over this reading list
+and files a citation as an =orl:= link, e.g.
+
+#+begin_example
+:SOURCES: [[orl:foote1963][Foote, The Civil War (1963)]] p.412
+#+end_example
+
+The =orl:= link type is provided here: following it jumps to the entry
+whose =:CUSTOM_ID:= matches, and it exports to the book's label.  Only
+entries that have a =:CUSTOM_ID:= are offered for completion — capture
+assigns one automatically, but legacy or hand-written entries may lack
+it.  Run =M-x org-reading-list-ensure-citekeys= in the reading-list
+buffer once to stamp citekeys on every keyless entry and make them
+citable.  =M-x org-chronicle-book-citations= (from org-chronicle), run on
+an entry here, lists the chronicle events that cite that book.
+
 * Etiquette and caveats
 
 - The Library of Congress asks automated clients of lx2.loc.gov to
