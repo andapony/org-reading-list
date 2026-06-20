@@ -1511,5 +1511,60 @@ you are asked first; declining aborts the capture."
                (format-time-string "[%Y-%m-%d %a]")
                (if source (format "\n:FOUND: %s" source) ""))))))
 
+;;;; Chronicle source API
+
+(defun org-reading-list--entry-label (author title date)
+  "Return a display label \"Surname, Title (Year)\" for a reading-list entry.
+AUTHOR is in inverted \"Surname, Given\" form; TITLE and DATE may be nil.
+Missing parts are dropped rather than rendered empty."
+  (let* ((surname (and author (car (split-string author ","))))
+         (year (and date (substring date 0 (min 4 (length date)))))
+         (head (cond ((and surname title) (format "%s, %s" surname title))
+                     (title title)
+                     (surname surname)
+                     (t "Untitled")))
+         (year (and year (not (string-empty-p year)) year)))
+    (if year (format "%s (%s)" head year) head)))
+
+(defun org-reading-list--disambiguate-labels (pairs)
+  "Make LABELs unique in PAIRS by suffixing \"[CITEKEY]\" to any collision.
+PAIRS is a list of (LABEL . CITEKEY); the input order is preserved."
+  (let ((counts (make-hash-table :test #'equal)))
+    (dolist (p pairs)
+      (puthash (car p) (1+ (gethash (car p) counts 0)) counts))
+    (mapcar (lambda (p)
+              (if (> (gethash (car p) counts) 1)
+                  (cons (format "%s [%s]" (car p) (cdr p)) (cdr p))
+                p))
+            pairs)))
+
+;;;###autoload
+(defun org-reading-list-entries ()
+  "Return a list of \(LABEL . CITEKEY) for keyed entries in the reading list.
+LABEL is \"Surname, Title (Year)\"; CITEKEY is the entry's :CUSTOM_ID:.
+This is a pure read: entries without a :CUSTOM_ID: are omitted (run
+`org-reading-list-ensure-citekeys' to make them citable), and the file is
+never modified.  Intended as the completion source for chronicle's
+`org-chronicle-add-source'."
+  (when (file-readable-p org-reading-list-file)
+    (let (raw)
+      (with-temp-buffer
+        (insert-file-contents org-reading-list-file)
+        (org-mode)
+        (org-map-entries
+         (lambda ()
+           (let ((key (org-entry-get nil "CUSTOM_ID")))
+             (when key
+               (push (cons (org-reading-list--entry-label
+                            (org-entry-get nil "AUTHOR")
+                            (org-entry-get nil "TITLE")
+                            (org-entry-get nil "DATE"))
+                           key)
+                     raw))))))
+      (org-reading-list--disambiguate-labels (nreverse raw)))))
+
+
+
+
 (provide 'org-reading-list)
 ;;; org-reading-list.el ends here

@@ -1292,6 +1292,52 @@ BODY may reference `file', the temp file's path."
       (should (seq-find (lambda (m) (and m (string-match-p "1/2" m))) msgs))
       (should (seq-find (lambda (m) (and m (string-match-p "2/2" m))) msgs)))))
 
+(ert-deftest org-reading-list-test-entry-label ()
+  "Label is \"Surname, Title (Year)\", degrading on missing parts."
+  (should (equal (org-reading-list--entry-label
+                  "Foote, Shelby" "The Civil War" "1963-01-01")
+                 "Foote, The Civil War (1963)"))
+  (should (equal (org-reading-list--entry-label nil "Untitled Work" nil)
+                 "Untitled Work"))
+  (should (equal (org-reading-list--entry-label "Foote, Shelby" nil "1963")
+                 "Foote (1963)")))
+
+(ert-deftest org-reading-list-test-disambiguate-labels ()
+  "Colliding labels gain a [citekey] suffix; unique ones are untouched."
+  (should (equal (org-reading-list--disambiguate-labels
+                  '(("Foote (1963)" . "foote1963")
+                    ("Foote (1963)" . "foote1963a")
+                    ("Lotchin (1997)" . "lotchin1997")))
+                 '(("Foote (1963) [foote1963]" . "foote1963")
+                   ("Foote (1963) [foote1963a]" . "foote1963a")
+                   ("Lotchin (1997)" . "lotchin1997")))))
+
+(ert-deftest org-reading-list-test-entries-pure-and-omits-keyless ()
+  "Entries reads keyed headings only and never writes."
+  (let* ((org-reading-list-file (make-temp-file "rl" nil ".org")))
+    (unwind-protect
+        (progn
+          (with-temp-file org-reading-list-file
+            (insert "* Books\n"
+                    "** TOREAD The Civil War\n:PROPERTIES:\n"
+                    ":AUTHOR: Foote, Shelby\n:TITLE: The Civil War\n"
+                    ":DATE: 1963\n:CUSTOM_ID: foote1963\n:END:\n"
+                    "** TOREAD Keyless\n:PROPERTIES:\n:AUTHOR: Nobody, A\n"
+                    ":TITLE: Keyless\n:DATE: 2000\n:END:\n"))
+          (let ((before (with-temp-buffer
+                          (insert-file-contents org-reading-list-file)
+                          (buffer-string))))
+            (should (equal (org-reading-list-entries)
+                           '(("Foote, The Civil War (1963)" . "foote1963"))))
+            (should (equal before
+                           (with-temp-buffer
+                             (insert-file-contents org-reading-list-file)
+                             (buffer-string))))))
+      (delete-file org-reading-list-file))))
+
+
+
+
 
 
 (provide 'org-reading-list-tests)
