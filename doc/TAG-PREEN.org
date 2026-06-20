@@ -1,0 +1,146 @@
+#+TITLE: SF-history reading list — tag preening sidecar
+#+STARTUP: content
+#+OPTIONS: ^:{}
+
+Sidecar for the_barbarians SF-history reading list. Holds the controlled
+tag vocabulary, the LLM map-maintenance prompt, and the rewrite map. The
+ORL package stays vocabulary-agnostic and stores each entry's full, raw
+subject set in its =:SUBJECTS:= property; the package projects that set to
+the headline tags via the rewrite map.  This sidecar is the per-list
+curation layer that decides those raw -> vocabulary mappings.
+
+* Controlled vocabulary (narrative threads)
+Copy this line into the reading-list preamble (gives Org C-c C-c
+completion; not ORL-specific):
+
+#+begin_example
+,#+TAGS: gold_rush vigilance crime fires waterfront mining women labor politics culture urbanism environment printing pictorial primary_source reference biography
+#+end_example
+
+Glosses:
+- gold_rush      :: Gold Rush era, diggings, the 1848–55 boomtown
+- vigilance      :: vigilance committees, extralegal order
+- crime          :: arson, the Hounds, the coroner's office, lawlessness
+- fires          :: the recurring conflagrations
+- waterfront     :: port, harbor, ships, shoreline
+- mining         :: mining industry, machinery, the mineral hinterland
+- women          :: women's history, female proprietors
+- labor          :: work, labor movements, the working class
+- politics       :: government, public sphere, social movements
+- culture        :: cultural/social construction, everyday life, race
+- urbanism       :: city-building, planning, architecture
+- environment    :: resource/environmental history
+- printing       :: the book and printing trade
+- pictorial      :: (form) photographic/visual books
+- primary_source :: (form) letters, diaries, documents
+- reference      :: (form) chronologies, encyclopedic reference
+- biography      :: (form) biographical treatment
+
+* Map-maintenance prompt (paste with the reading-list file)
+#+begin_src text
+You are maintaining the controlled-vocabulary rewrite MAP for an Org-mode
+reading list. You do NOT edit the file: the org-reading-list package applies
+the map deterministically — it projects each heading's :SUBJECTS: property to
+the headline :tags:. Your job is to (a) extend the map to cover subject tokens
+it does not yet handle, and (b) infer threads for entries the map leaves thin.
+
+Each book is a heading under "* Books". Its raw subjects are in the :SUBJECTS:
+property: a ";"-separated list of normalized tokens (the full, uncapped set
+harvested from the catalog sources). The headline :tags: are the package's
+OUTPUT — already projected through the map below — so ignore them as input.
+Read :SUBJECTS: (and :TITLE:/:ABSTRACT: for inference).
+
+Controlled vocabulary — the ONLY tags the map may target (the #+TAGS: line and
+glosses in this sidecar are authoritative; do not invent tags outside it):
+gold_rush vigilance crime fires waterfront mining women labor politics culture
+urbanism environment printing pictorial primary_source reference biography
+
+Tasks:
+1. MAP ADDITIONS. Across all entries, collect every :SUBJECTS: token the current
+   map below does not already handle (it is neither a mapped key nor listed
+   under DROP). For each, decide either the nearest vocabulary thread (collapse
+   synonyms, variants, and MARC subdivisions) or DROP (universal /
+   non-discriminating tokens such as history, san_francisco*, california*, or
+   anything with no home in the vocabulary). Never target a tag outside the
+   controlled vocabulary. Output the decisions as new map lines in the same
+   "thread <= raw, raw, ..." / "DROP <= raw, ..." form, ready to merge.
+   (Tip: M-x org-reading-list-lint-tags lists each entry's unresolved tokens —
+   exactly the ones that still need a decision.)
+2. THIN-ENTRY INFERENCE. For any entry whose :SUBJECTS:, after the full map
+   (current + your additions), yields fewer than 2 vocabulary threads, infer the
+   2-4 threads the book is about from its :TITLE: and :ABSTRACT:. Output a table:
+   citekey | mapped threads | inferred threads, marking "(REVIEW)".
+3. Do NOT output rewritten headline tags or edit any property: the package
+   re-derives the tags from :SUBJECTS: through the map once it is updated (M-x
+   org-reading-list-preen-tags). Propose map and inference changes only; I apply
+   them after confirming.
+
+Rewrite map (raw -> vocabulary), the current state to extend. Update it when you
+make a new mapping decision:
+  gold_rush      <= frontier_and_pioneer_life, gold_discoveries,
+                    california_gold_discoveries, gold_mines_and_mining
+  vigilance      <= vigilance_committees, san_francisco_committee_of_vigilance
+  crime          <= arson, coroners, medical_jurisprudence, medical_examiners_law,
+                    forensic_pathology
+  fires          <= fires, fire_departments, fire_fighters, san_francisco_calif_fire_dept
+  waterfront     <= waterfronts, port_of_san_francisco_calif, harbors, shipping,
+                    historic_ships, urban_archaeology, antiquities
+  mining         <= mining_machinery, mining_machinery_industry,
+                    mines_and_mineral_resources
+  women          <= businesswomen, women_owned_business_enterprises
+  labor          <= workingmen_s_party_of_california
+  politics       <= politics_and_government, political_culture, political_participation,
+                    social_movements, social_change, law_and_politics
+  culture        <= social_conditions, social_life_and_customs, california_social_conditions,
+                    ethnic_relations, assimilation_sociology,
+                    american_national_characteristics, elite_social_sciences,
+                    city_and_town_life
+  urbanism       <= urbanization, real_estate_development, architecture,
+                    historic_buildings, buildings_structures, city_planning
+  printing       <= printing, printers
+  pictorial      <= pictorial_works, photography_of_architecture
+  primary_source <= sources
+  reference      <= chronology
+  biography      <= biography
+  environment    <= (no raw alias yet; infer from text)
+  DROP           <= history, san_francisco, san_francisco_calif, san_francisco_calif_history,
+                    california, california_history, business, business_enterprises_united_states,
+                    jazz, tom_sawyer_fictitious_character, friends_and_associates,
+                    adventure_and_adventurers
+#+end_src
+
+* Preen results — seed run [2026-06-19]
+Applied to the round-trip fetched tags (old/fetch-report.org). REVIEW = tags
+inferred from title/abstract rather than mapped from raw headings.
+
+| citekey       | new tags                              | note |
+|---------------+---------------------------------------+------|
+| barry1873     | gold_rush primary_source urbanism     | REVIEW (raw mapped to mining/politics; essence is a Gold Rush primary source) |
+| williams1921  | culture gold_rush vigilance           |      |
+| mayer1974     | primary_source reference              |      |
+| fardon1977    | gold_rush pictorial primary_source    | REVIEW (gold_rush, primary_source inferred) |
+| senkewicz1985 | gold_rush vigilance                   |      |
+| ethington1994 | culture labor politics urbanism       |      |
+| bailey1996    | environment mining pictorial          | REVIEW (environment inferred) |
+| benemann1999  | culture gold_rush primary_source      | REVIEW (gold_rush inferred; dropped misleading raw 'biography') |
+| allen2002     | crime gold_rush                       | REVIEW (gold_rush inferred) |
+| garvey2003    | fires pictorial                       | REVIEW (pictorial inferred from "photographic history") |
+| sparks2006    | labor women                           | REVIEW (labor inferred) |
+| berglund2007  | culture urbanism                      | REVIEW (urbanism inferred) |
+| johnson2008   | biography printing                    |      |
+| richards2008  | crime culture gold_rush               | REVIEW (crime inferred from the Hounds/vice) |
+| corbett2010   | urbanism waterfront                   |      |
+| carlsson2011  | culture politics                      |      |
+| rubin2011     | politics urbanism waterfront          |      |
+| graysmith2012 | crime fires gold_rush                 | REVIEW (gold_rush inferred; both crime+fires kept) |
+| bruno2018     | biography gold_rush waterfront        | REVIEW (biography, gold_rush inferred) |
+| filion2023    | gold_rush reference waterfront        | REVIEW (gold_rush, reference inferred) |
+| buckley2024   | environment labor urbanism            | REVIEW (all inferred — 0 raw tags) |
+
+* Notes / automation
+- This seed run is the deterministic part of the hybrid: the rewrite map above
+  captures the raw->vocab decisions, so future preens map the common cases for
+  free and only need the LLM for novel raw tags or thin/zero-tag entries.
+- Thread coverage after the seed: gold_rush ~9, culture/urbanism ~6 each,
+  waterfront 4, primary_source 4, crime/labor/politics/pictorial 3 each,
+  vigilance/fires/environment/reference/biography 2 each, mining/women 1 each.
