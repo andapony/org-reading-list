@@ -1398,7 +1398,8 @@ BODY may reference `file', the temp file's path."
 (ert-deftest org-reading-list-test-link-registered ()
   "The orl link type is registered with org."
   (should (org-link-get-parameter "orl" :follow))
-  (should (org-link-get-parameter "orl" :export)))
+  (should (org-link-get-parameter "orl" :export))
+  (should (org-link-get-parameter "orl" :complete)))
 
 (ert-deftest org-reading-list-test-link-complete ()
   "Completion returns an orl: link for the chosen entry."
@@ -1407,17 +1408,6 @@ BODY may reference `file', the temp file's path."
             ((symbol-function 'completing-read)
              (lambda (&rest _) "Foote, The Civil War (1963)")))
     (should (equal (org-reading-list-link-complete) "orl:foote1963"))))
-
-
-
-
-
-
-
-
-
-
-
 
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here
