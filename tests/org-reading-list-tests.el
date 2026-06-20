@@ -1335,6 +1335,44 @@ BODY may reference `file', the temp file's path."
                              (buffer-string))))))
       (delete-file org-reading-list-file))))
 
+(ert-deftest org-reading-list-test-ensure-citekey-idempotent ()
+  "An entry that already has a citekey keeps it; a keyless one gets one."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD Kept\n:PROPERTIES:\n:CUSTOM_ID: keep1\n:END:\n"
+            "* TOREAD New\n:PROPERTIES:\n:AUTHOR: Foote, Shelby\n"
+            ":DATE: 1963\n:END:\n")
+    (goto-char (point-min))
+    (should (equal (org-reading-list-ensure-citekey) "keep1"))
+    (re-search-forward "New")
+    (should (equal (org-reading-list-ensure-citekey) "foote1963"))
+    (goto-char (point-min))
+    (re-search-forward "New")
+    (should (equal (org-entry-get nil "CUSTOM_ID") "foote1963"))))
+
+(ert-deftest org-reading-list-test-ensure-citekeys-stamps-all ()
+  "The file-wide command stamps every keyless entry, leaving keyed ones."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n"
+            "** TOREAD Kept\n:PROPERTIES:\n:CUSTOM_ID: keep1\n:END:\n"
+            "** TOREAD A\n:PROPERTIES:\n:AUTHOR: Foote, Shelby\n"
+            ":DATE: 1963\n:END:\n"
+            "** TOREAD B\n:PROPERTIES:\n:AUTHOR: Foote, Shelby\n"
+            ":DATE: 1963\n:END:\n")
+    (should (= (org-reading-list-ensure-citekeys) 2))
+    (let (keys)
+      (org-map-entries
+       (lambda () (let ((k (org-entry-get nil "CUSTOM_ID")))
+                    (when k (push k keys)))))
+      ;; keep1 untouched; the two keyless entries get distinct keys.
+      (should (member "keep1" keys))
+      (should (member "foote1963" keys))
+      (should (member "foote1963a" keys))
+      (should (= (length keys) 3)))))
+
+
+
 
 
 

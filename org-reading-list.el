@@ -1563,6 +1563,48 @@ never modified.  Intended as the completion source for chronicle's
                      raw))))))
       (org-reading-list--disambiguate-labels (nreverse raw)))))
 
+(defun org-reading-list--buffer-citekeys ()
+  "Return the list of :CUSTOM_ID: values present in the current buffer."
+  (let (keys)
+    (org-map-entries
+     (lambda ()
+       (let ((k (org-entry-get nil "CUSTOM_ID")))
+         (when k (push k keys)))))
+    keys))
+
+;;;###autoload
+(defun org-reading-list-ensure-citekey (&optional pom)
+  "Return the :CUSTOM_ID: of the entry at POM, writing a new one if absent.
+POM defaults to point.  A generated key is unique against the other keys
+already present in the current buffer, so a batch stamp cannot collide."
+  (org-with-point-at (or pom (point))
+    (or (org-entry-get nil "CUSTOM_ID")
+        (let ((key (org-reading-list--citekey-unique
+                    (org-reading-list--citekey-base
+                     (org-entry-get nil "AUTHOR")
+                     (org-entry-get nil "DATE"))
+                    (org-reading-list--buffer-citekeys))))
+          (org-set-property "CUSTOM_ID" key)
+          key))))
+
+;;;###autoload
+(defun org-reading-list-ensure-citekeys ()
+  "Stamp a :CUSTOM_ID: on every keyless book entry in the current buffer.
+Keyed entries are left untouched.  Return the number of keys added; when
+called interactively, report it.  Run this once to make legacy or
+hand-written entries citable from org-chronicle."
+  (interactive)
+  (let ((added 0))
+    (org-map-entries
+     (lambda ()
+       (unless (org-entry-get nil "CUSTOM_ID")
+         (org-reading-list-ensure-citekey)
+         (setq added (1+ added))))
+     "AUTHOR={.}")
+    (when (called-interactively-p 'interactive)
+      (message "Added %d citekey(s)" added))
+    added))
+
 
 
 
