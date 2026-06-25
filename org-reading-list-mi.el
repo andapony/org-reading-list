@@ -394,10 +394,30 @@ on no response or no results."
          (pick (completing-read "MILibrary result: " labels nil t)))
     (cdr (assoc pick labels))))
 
+(defun org-reading-list-mi--candidate-match-p (cand author date)
+  "Non-nil if MILibrary candidate CAND plausibly matches AUTHOR and DATE.
+Mirrors `org-reading-list--loc-match-p' for brief-result rows: CAND's
+author surname (plist key :author) must equal AUTHOR's surname, and when
+both DATE and CAND's :year are known they must agree.  AUTHOR is an
+inverted \"Surname, Given\" name; DATE is the entry's :DATE: (a year may
+be embedded)."
+  (let* ((ours (org-reading-list--dup-surname-key author))
+         (theirs (org-reading-list--dup-surname-key (plist-get cand :author)))
+         (dyear (and (stringp date) (string-match "[0-9]\\{4\\}" date)
+                     (match-string 0 date)))
+         (cyear (plist-get cand :year)))
+    (and ours theirs (equal ours theirs)
+         (or (null dyear) (null cyear) (equal dyear cyear)))))
+
+
 (defun org-reading-list-mi--entry-bibid ()
   "Find the MILibrary bib id for the Org entry at point, or nil.
-Searches by :ISBN: first, then by :TITLE:, taking the first candidate.
-Signal a `user-error' when the entry has neither to search by."
+Searches by :ISBN: first (an exact match, so the first candidate is
+taken).  Otherwise searches by :TITLE: and accepts only a candidate
+whose author surname and year agree with the entry, via
+`org-reading-list-mi--candidate-match-p'; returns nil when none is
+confident, guarding against unrelated keyword hits.  Signal a
+`user-error' when the entry has neither :ISBN: nor :TITLE: to search by."
   (let* ((isbn (let ((v (org-entry-get nil "ISBN")))
                  (and v (car (split-string v "[, ]" t)))))
          (title (org-entry-get nil "TITLE")))
@@ -405,8 +425,12 @@ Signal a `user-error' when the entry has neither to search by."
      (isbn (plist-get
             (car (org-reading-list-mi--search-candidates "i" isbn)) :bibid))
      ((and title (not (string-empty-p title)))
-      (plist-get
-       (car (org-reading-list-mi--search-candidates "t" title)) :bibid))
+      (let ((match (seq-find
+                    (lambda (c)
+                      (org-reading-list-mi--candidate-match-p
+                       c (org-entry-get nil "AUTHOR") (org-entry-get nil "DATE")))
+                    (org-reading-list-mi--search-candidates "t" title))))
+        (and match (plist-get match :bibid))))
      (t (user-error "Entry has no :ISBN: or :TITLE: to search MILibrary by")))))
 
 (defun org-reading-list-mi--candidate-label (c)

@@ -475,5 +475,59 @@
   ;; The source is registered.
   (should (memq #'org-reading-list-mi--subjects org-reading-list-subject-functions)))
 
+(ert-deftest org-reading-list-mi-test-candidate-match-p ()
+  ;; Surname must agree.
+  (should-not (org-reading-list-mi--candidate-match-p
+               '(:author "Justice, Donald, 1925-2004, author." :year "2004")
+               "Colton, Walter" "1850"))
+  ;; Surname agrees, years agree -> match.
+  (should (org-reading-list-mi--candidate-match-p
+           '(:author "Colton, Walter." :year "1850")
+           "Colton, Walter" "1850"))
+  ;; Surname agrees, years disagree -> no match.
+  (should-not (org-reading-list-mi--candidate-match-p
+               '(:author "Colton, Walter." :year "1999")
+               "Colton, Walter" "1850"))
+  ;; Year unknown on either side is permissive (surname still required).
+  (should (org-reading-list-mi--candidate-match-p
+           '(:author "Colton, Walter." :year nil)
+           "Colton, Walter" "1850"))
+  ;; No candidate author -> cannot confirm -> no match.
+  (should-not (org-reading-list-mi--candidate-match-p
+               '(:author nil :year "1850")
+               "Colton, Walter" "1850")))
+
+(ert-deftest org-reading-list-mi-test-entry-bibid-rejects-mismatch ()
+  (cl-letf (((symbol-function 'org-reading-list-mi--search-candidates)
+             (lambda (&rest _)
+               (list '(:title "Collected poems" :author "Justice, Donald, 1925-2004, author."
+                              :year "2004" :bibid "b1164904")
+                     '(:title "Poets of World War II" :author nil
+                              :year "2003" :bibid "b1158171")))))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* TOREAD Three Years in California\n:PROPERTIES:\n"
+              ":TITLE: Three Years in California\n:AUTHOR: Colton, Walter\n"
+              ":DATE: 1850\n:END:\n")
+      (goto-char (point-min))
+      (should-not (org-reading-list-mi--entry-bibid)))))
+
+(ert-deftest org-reading-list-mi-test-entry-bibid-accepts-match ()
+  (cl-letf (((symbol-function 'org-reading-list-mi--search-candidates)
+             (lambda (&rest _)
+               (list '(:title "Collected poems" :author "Justice, Donald" :year "2004" :bibid "b1")
+                     '(:title "Three Years in California" :author "Colton, Walter"
+                              :year "1850" :bibid "b999")))))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* TOREAD Three Years in California\n:PROPERTIES:\n"
+              ":TITLE: Three Years in California\n:AUTHOR: Colton, Walter\n"
+              ":DATE: 1850\n:END:\n")
+      (goto-char (point-min))
+      (should (equal (org-reading-list-mi--entry-bibid) "b999")))))
+
+
+
+
 (provide 'org-reading-list-mi-tests)
 ;;; org-reading-list-mi-tests.el ends here
