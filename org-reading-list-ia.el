@@ -158,6 +158,28 @@ the item has no readable scan (a catalog stub)."
                 :olid olid
                 :scan t))))))
 
+(defun org-reading-list-ia--year-int (year)
+  "Return the first four-digit year in YEAR as an integer, or nil."
+  (when (and (stringp year) (string-match "[0-9]\\{4\\}" year))
+    (string-to-number (match-string 0 year))))
+
+(defun org-reading-list-ia--rank (rows)
+  "Sort enriched ROWS earliest-year first, quality breaking ties.
+Tie-break order: non-Google before Google, open before lending, higher
+ppi first.  Rows with no :year-int sort last."
+  (sort (copy-sequence rows)
+        (lambda (a b)
+          (let ((ya (or (plist-get a :year-int) most-positive-fixnum))
+                (yb (or (plist-get b :year-int) most-positive-fixnum)))
+            (cond
+             ((/= ya yb) (< ya yb))
+             ((not (eq (plist-get a :google) (plist-get b :google)))
+              (not (plist-get a :google)))
+             ((not (eq (plist-get a :open) (plist-get b :open)))
+              (and (plist-get a :open) t))
+             (t (> (or (plist-get a :ppi) 0)
+                   (or (plist-get b :ppi) 0))))))))
+
 
 
 

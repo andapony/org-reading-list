@@ -103,6 +103,24 @@
                               (mediatype . "texts")))))))
     (should (null (org-reading-list-ia--metadata "stub")))))
 
+(ert-deftest org-reading-list-ia-test-year-int ()
+  (should (= (org-reading-list-ia--year-int "1855") 1855))
+  (should (= (org-reading-list-ia--year-int "[1845]") 1845))
+  (should (null (org-reading-list-ia--year-int nil))))
+
+(ert-deftest org-reading-list-ia-test-rank ()
+  (let* ((rows (list
+                '(:id "c" :year-int 1933 :google nil :open t :ppi 400)
+                '(:id "a" :year-int 1855 :google t   :open t :ppi 150)
+                '(:id "b" :year-int 1855 :google nil :open t :ppi 300)
+                '(:id "d" :year-int nil  :google nil :open t :ppi 500)))
+         (ranked (org-reading-list-ia--rank rows)))
+    ;; Earliest year first; non-Google breaks the 1855 tie; year-less last.
+    (should (equal (mapcar (lambda (r) (plist-get r :id)) ranked)
+                   '("b" "a" "c" "d")))))
+
+
+
 
 
 
