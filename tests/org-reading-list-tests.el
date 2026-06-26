@@ -1273,6 +1273,50 @@ BODY may reference `file', the temp file's path."
         (should (equal (org-entry-get nil "SUBJECTS")
                        "gold_rush; mining; primary_source"))))))
 
+(ert-deftest org-reading-list-test-resolve-identifiers-fills-from-loc ()
+  ;; No identifier: a guarded LoC title/author lookup fills :ISBN: and :LCCN:.
+  (cl-letf (((symbol-function 'org-reading-list--loc-entry-records)
+             (lambda ()
+               '((record nil
+                         (datafield ((tag . "020") (ind1 . "") (ind2 . ""))
+                                    (subfield ((code . "a")) "0375505415"))
+                         (datafield ((tag . "010") (ind1 . "") (ind2 . ""))
+                                    (subfield ((code . "a")) "  2001012345 ")))))))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* TOREAD T\n:PROPERTIES:\n:TITLE: T\n:AUTHOR: Doe, Jane\n:DATE: 1990\n:END:\n")
+      (goto-char (point-min))
+      (let ((added (org-reading-list--resolve-identifiers)))
+        (should (equal added '("ISBN" "LCCN")))
+        (should (equal (org-entry-get nil "ISBN") "0375505415"))
+        (should (equal (org-entry-get nil "LCCN") "2001012345"))))))
+
+(ert-deftest org-reading-list-test-resolve-identifiers-skips-when-identified ()
+  ;; An existing identifier short-circuits: no LoC query, no change.
+  (cl-letf (((symbol-function 'org-reading-list--loc-entry-records)
+             (lambda () (error "should not query LoC when an identifier exists"))))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* TOREAD T\n:PROPERTIES:\n:ISBN: 0375505415\n:TITLE: T\n:END:\n")
+      (goto-char (point-min))
+      (should-not (org-reading-list--resolve-identifiers))
+      (should (equal (org-entry-get nil "ISBN") "0375505415")))))
+
+(ert-deftest org-reading-list-test-resolve-identifiers-failsafe-no-match ()
+  ;; No confident match: leave the entry untouched (fail-safe).
+  (cl-letf (((symbol-function 'org-reading-list--loc-entry-records)
+             (lambda () (user-error "No LoC catalog record found"))))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* TOREAD T\n:PROPERTIES:\n:TITLE: Obscure\n:AUTHOR: Doe, Jane\n:END:\n")
+      (goto-char (point-min))
+      (should-not (org-reading-list--resolve-identifiers))
+      (should-not (org-entry-get nil "ISBN"))
+      (should-not (org-entry-get nil "LCCN")))))
+
+
+
+
 
 (ert-deftest org-reading-list-test-fetch-subjects-projects-tags ()
   ;; fetch-subjects writes :SUBJECTS: AND re-derives the heading tags

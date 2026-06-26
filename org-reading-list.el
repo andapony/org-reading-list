@@ -1329,6 +1329,37 @@ Return the list of property names changed."
           (push name changed))))
     (nreverse changed)))
 
+(defun org-reading-list--resolve-identifiers ()
+  "Resolve a hard identifier for the entry at point from a guarded LoC lookup.
+When the entry has no :ISBN:, :LCCN:, or :OLID:, query the LC Catalog by
+:TITLE: and :AUTHOR: through `org-reading-list--loc-entry-records' (which
+filters matches by author and year), and fill an empty :ISBN: (MARC 020
+$a) and :LCCN: (MARC 010) from the best match.  Fill-empty only: nothing
+already present is overwritten.  Resolving an identifier lets later
+sources match exactly instead of by fuzzy title.  Return the list of
+property names added, or nil when the entry already carries an
+identifier or no record matches confidently (the entry is then left
+unchanged)."
+  (unless (seq-some (lambda (p)
+                      (let ((v (org-entry-get nil p)))
+                        (and v (not (string-empty-p v)))))
+                    '("ISBN" "LCCN" "OLID"))
+    (let ((recs (ignore-errors (org-reading-list--loc-entry-records)))
+          (changed '()))
+      (when recs
+        (let ((isbn (org-reading-list--loc-first
+                     recs (lambda (r) (car (org-reading-list--marc-isbns r "a")))))
+              (lccn (org-reading-list--loc-first
+                     recs (lambda (r)
+                            (let ((v (org-reading-list--marc-field r "010")))
+                              (and v (replace-regexp-in-string " " "" v)))))))
+          (dolist (kv (list (cons "ISBN" isbn) (cons "LCCN" lccn)))
+            (when (and (cdr kv) (not (org-entry-get nil (car kv))))
+              (org-entry-put nil (car kv) (cdr kv))
+              (push (car kv) changed)))))
+      (nreverse changed))))
+
+
 (defun org-reading-list--loc-apply-tags (recs &optional replace)
   "Add subject tags from MARC RECS to the entry at point.
 Existing tags are kept and merged unless REPLACE is non-nil.  At most
