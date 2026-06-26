@@ -41,7 +41,6 @@
     (should (string-match-p "mediatype:texts" qp))
     (should (string-match-p "mediatype:texts" qo))))
 
-
 (ert-deftest org-reading-list-ia-test-search-parses-docs ()
   (cl-letf (((symbol-function 'org-reading-list--fetch-json)
              (lambda (_url)
@@ -317,12 +316,12 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
 (ert-deftest org-reading-list-ia-test-report-rows ()
   (let ((entries (list
                   '(:pos 1 :citekey "soule1966" :title "The Annals"
-			 :date "1966" :author "Soulé, Frank")
+                         :date "1966" :author "Soulé, Frank")
                   '(:pos 2 :citekey "none2000" :title "No Scans"
-			 :date "2000" :author "Quiet, P")
+                         :date "2000" :author "Quiet, P")
                   '(:pos 3 :citekey "have1900" :title "Owned"
-			 :date "1900" :author "Have, A"
-			 :localfile "[[file:~/owned.pdf]]"))))
+                         :date "1900" :author "Have, A"
+                         :localfile "[[file:~/owned.pdf]]"))))
     (cl-letf (((symbol-function 'org-reading-list-ia--probe-open)
                (lambda (_a title)
                  (when (equal title "The Annals")
@@ -415,6 +414,16 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
       ;; The buffer's open-scan column is relabelled.
       (with-current-buffer "*IA discovery report*"
         (should (equal (aref tabulated-list-format 3) '("Open scan" 10 nil)))))))
+
+(ert-deftest org-reading-list-ia-test-report-rows-errors ()
+  (let ((entries (list '(:pos 1 :citekey "boom1900" :title "Boom"
+                         :date "1900" :author "B, A"))))
+    (cl-letf (((symbol-function 'org-reading-list-ia--probe-open)
+               (lambda (_a _t) (error "network down"))))
+      (let ((res (org-reading-list-ia--report-rows entries)))
+        (should (equal (plist-get res :errors) '("boom1900")))
+        (should (null (plist-get res :rows)))
+        (should (= (plist-get res :checked) 1))))))
 
 
 (provide 'org-reading-list-ia-tests)
