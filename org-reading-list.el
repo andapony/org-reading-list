@@ -521,15 +521,21 @@ runs them all and unions the results into :SUBJECTS:.  Extension modules
 
 (defun org-reading-list--fetch-entry-subjects ()
   "Collect subjects for the entry at point and set :SUBJECTS:.
-Run every function in `org-reading-list-subject-functions', union and
-de-duplicate the results, and store them.  Return the token list, or nil
-when no source yielded subjects (the property is then left unchanged)."
-  (let ((subjects (delete-dups
-                   (mapcan (lambda (fn) (copy-sequence (funcall fn)))
-                           org-reading-list-subject-functions))))
-    (when subjects
-      (org-entry-put nil "SUBJECTS" (string-join subjects "; "))
-      subjects)))
+Union the existing :SUBJECTS: with the results of every function in
+`org-reading-list-subject-functions', normalize each token with
+`org-reading-list--tagify', de-duplicate, and sort.  :SUBJECTS: is
+authoritative and append-only: nothing already present is removed.
+Return the canonical token list, or nil when the entry ends up with no
+subjects (the property is then left unchanged)."
+  (let* ((fetched (mapcan (lambda (fn) (copy-sequence (funcall fn)))
+                          org-reading-list-subject-functions))
+         (tokens (delq nil (mapcar #'org-reading-list--tagify
+                                   (append (org-reading-list--entry-subjects)
+                                           fetched))))
+         (canonical (sort (delete-dups tokens) #'string<)))
+    (when canonical
+      (org-entry-put nil "SUBJECTS" (string-join canonical "; "))
+      canonical)))
 
 ;;;###autoload
 (defun org-reading-list-fetch-subjects (&optional all)

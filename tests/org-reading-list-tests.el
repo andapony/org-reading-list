@@ -1254,8 +1254,25 @@ BODY may reference `file', the temp file's path."
            (list (lambda () '("sailors" "whaling"))
                  (lambda () '("whaling" "sea_stories")))))
       (org-reading-list--fetch-entry-subjects)
+      ;; Cross-source union + dedup, then normalized/alphabetized.
       (should (equal (org-entry-get nil "SUBJECTS")
-                     "sailors; whaling; sea_stories")))))
+                     "sailors; sea_stories; whaling")))))
+
+(ert-deftest org-reading-list-test-fetch-subjects-appends-normalizes-sorts ()
+  ;; :SUBJECTS: is authoritative and append-only: existing tokens survive,
+  ;; new ones are normalized and unioned, the result is deduped and sorted.
+  (let ((org-reading-list-subject-functions
+         (list (lambda () '("gold_rush" "Mining")))))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* TOREAD X\n:PROPERTIES:\n"
+              ":SUBJECTS: primary_source; gold_rush\n:END:\n")
+      (goto-char (point-min))
+      (let ((result (org-reading-list--fetch-entry-subjects)))
+        (should (equal result '("gold_rush" "mining" "primary_source")))
+        (should (equal (org-entry-get nil "SUBJECTS")
+                       "gold_rush; mining; primary_source"))))))
+
 
 (ert-deftest org-reading-list-test-fetch-subjects-projects-tags ()
   ;; fetch-subjects writes :SUBJECTS: AND re-derives the heading tags
