@@ -148,5 +148,30 @@
       (should (= (plist-get (car rows) :year-int) 1855))
       (should (null (plist-get res :truncated))))))
 
+(ert-deftest org-reading-list-ia-test-new-entry ()
+  (let* ((cand '(:identifier "annals1855" :year "1855" :publisher "Appleton"
+                 :imagecount 560 :olid "OL1M" :ppi 300 :open t :google nil))
+         (source '(:author "Soulé, Frank"
+                   :title "The Annals of San Francisco"
+                   :subjects "california; history"
+                   :tags "sf_history:gold_rush"
+                   :citekey "soule1966"))
+         (entry (org-reading-list-ia--new-entry
+                 cand source "[2026-06-26 Fri]" '("soule1855"))))
+    ;; Fresh, collision-suffixed key (soule1855 is taken).
+    (should (string-match-p ":CUSTOM_ID: soule1855a" entry))
+    (should (string-match-p "^\\* TOREAD The Annals of San Francisco \
+:sf_history:gold_rush:$" entry))
+    (should (string-match-p ":AUTHOR: Soulé, Frank" entry))
+    (should (string-match-p ":DATE: 1855" entry))
+    (should (string-match-p ":IA: annals1855" entry))
+    (should (string-match-p ":OLID: OL1M" entry))
+    (should (string-match-p ":PAGES: 560" entry))
+    (should (string-match-p ":SUBJECTS: california; history" entry))
+    (should (string-match-p ":ADDED: \\[2026-06-26 Fri\\]" entry))
+    (should (string-match-p
+             ":FOUND: IA edition discovery; earlier edition of \\[\\[#soule1966\\]\\]"
+             entry))))
+
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here

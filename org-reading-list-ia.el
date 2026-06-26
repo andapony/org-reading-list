@@ -206,5 +206,50 @@ lacking a readable scan are dropped.  At most
     (list :rows (org-reading-list-ia--rank (nreverse rows))
           :truncated truncated)))
 
+(defun org-reading-list-ia--new-entry (cand source today existing-keys)
+  "Return an Org entry string for edition CAND of the work in SOURCE.
+SOURCE is a plist (:author :title :subjects :tags :citekey) read from
+the existing entry; work-level fields are copied from it and
+edition-level fields come from CAND.  TODAY is an inactive Org
+timestamp; EXISTING-KEYS is the list of cite keys already in the file,
+for collision suffixing."
+  (let* ((author (plist-get source :author))
+         (year (org-reading-list-ia--year-int (plist-get cand :year)))
+         (year-str (and year (number-to-string year)))
+         (key (org-reading-list--citekey-unique
+               (org-reading-list--citekey-base
+                (ucs-normalize-NFD-string (or author ""))
+                year-str)
+               existing-keys))
+         (tags (plist-get source :tags))
+         (pages (let ((n (plist-get cand :imagecount)))
+                  (and n (> n 0) (number-to-string n))))
+         (props
+          (seq-filter
+           #'cdr
+           (list
+            (cons "CUSTOM_ID" key)
+            (cons "BTYPE" "book")
+            (cons "AUTHOR" author)
+            (cons "TITLE" (plist-get source :title))
+            (cons "PUBLISHER" (plist-get cand :publisher))
+            (cons "DATE" year-str)
+            (cons "PAGES" pages)
+            (cons "IA" (plist-get cand :identifier))
+            (cons "OLID" (plist-get cand :olid))
+            (cons "SUBJECTS" (plist-get source :subjects))
+            (cons "ADDED" today)
+            (cons "FOUND"
+                  (format "IA edition discovery; earlier edition of [[#%s]]"
+                          (plist-get source :citekey)))))))
+    (concat
+     (format "* TOREAD %s%s\n"
+             (plist-get source :title)
+             (if (and tags (not (string-empty-p tags)))
+                 (format " :%s:" tags) ""))
+     ":PROPERTIES:\n"
+     (mapconcat (lambda (kv) (format ":%s: %s\n" (car kv) (cdr kv))) props "")
+     ":END:\n")))
+
 (provide 'org-reading-list-ia)
 ;;; org-reading-list-ia.el ends here
