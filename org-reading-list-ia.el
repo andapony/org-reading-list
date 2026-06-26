@@ -260,7 +260,7 @@ for collision suffixing."
 (defun org-reading-list-ia--add-edition (cand)
   "Add edition CAND as a new entry, back-linked from the entry at point.
 Work-level fields are read from the entry at point; the new entry is
-filed under `org-reading-list-headline'; an \"Earlier edition\" link is
+filed under `org-reading-list-headline'; an \"Another edition\" link is
 added to the original.  Return the new entry's buffer position."
   (let* ((origpos (save-excursion (org-back-to-heading t) (point)))
          (src-citekey (org-entry-get nil "CUSTOM_ID")))
