@@ -238,7 +238,7 @@ for collision suffixing."
             (cons "SUBJECTS" (plist-get source :subjects))
             (cons "ADDED" today)
             (cons "FOUND"
-                  (format "IA edition discovery; earlier edition of [[#%s]]"
+                  (format "IA edition discovery; another edition of [[#%s]]"
                           (plist-get source :citekey)))))))
     (concat
      (format "* TOREAD %s%s\n"
@@ -250,13 +250,12 @@ for collision suffixing."
      ":END:\n")))
 
 (defun org-reading-list-ia--add-backlink (origpos newkey)
-  "Insert an \"Earlier edition\" link to NEWKEY under the entry at ORIGPOS."
+  "Insert an \"Another edition\" link to NEWKEY under the entry at ORIGPOS."
   (save-excursion
     (goto-char origpos)
-    (org-back-to-heading t)
     (org-end-of-meta-data t)
     (unless (bolp) (insert "\n"))
-    (insert (format "Earlier edition: [[#%s]]\n" newkey))))
+    (insert (format "Another edition: [[#%s]]\n" newkey))))
 
 (defun org-reading-list-ia--add-edition (cand)
   "Add edition CAND as a new entry, back-linked from the entry at point.
@@ -462,7 +461,7 @@ hit are included.  Probe errors are collected in :errors."
 (defun org-reading-list-ia--report ()
   "Report which reading-list entries have an earlier scanned edition."
   (let* ((src (current-buffer))
-         (entries (org-reading-list-ia--scan-headings))
+         (entries (save-restriction (widen) (org-reading-list-ia--scan-headings)))
          (res (org-reading-list-ia--report-rows entries))
          (rows (mapcar
                 (lambda (r)
@@ -499,11 +498,6 @@ hit are included.  Probe errors are collected in :errors."
                          (length (plist-get res :errors)))
                ""))
     (pop-to-buffer buf)))
-
-
-
-
-
 
 ;;;###autoload
 (defun org-reading-list-ia-find-editions (&optional all)

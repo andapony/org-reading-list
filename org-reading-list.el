@@ -81,7 +81,6 @@
 
 (require 'ucs-normalize)
 
-
 (defgroup org-reading-list nil
   "Bibliographic reading list in Org mode."
   :group 'org
@@ -1742,12 +1741,10 @@ Signal a `user-error' when no such entry exists."
 
 (declare-function org-reading-list-ia-find-editions "org-reading-list-ia")
 
-
 (transient-define-suffix org-reading-list--dispatch-find-editions ()
   "Run `org-reading-list-ia-find-editions', buffer-wide on the -b switch."
   (interactive)
   (org-reading-list-ia-find-editions (org-reading-list--dispatch-buffer-p)))
-
 
 ;;;###autoload (autoload 'org-reading-list-dispatch "org-reading-list" nil t)
 (transient-define-prefix org-reading-list-dispatch ()

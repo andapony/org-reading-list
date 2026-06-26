@@ -169,8 +169,9 @@
     (should (string-match-p ":PAGES: 560" entry))
     (should (string-match-p ":SUBJECTS: california; history" entry))
     (should (string-match-p ":ADDED: \\[2026-06-26 Fri\\]" entry))
+    (should (string-match-p ":BTYPE: book" entry))
     (should (string-match-p
-             ":FOUND: IA edition discovery; earlier edition of \\[\\[#soule1966\\]\\]"
+             ":FOUND: IA edition discovery; another edition of \\[\\[#soule1966\\]\\]"
              entry))))
 
 (ert-deftest org-reading-list-ia-test-add-edition ()
@@ -194,7 +195,7 @@
         (should (string-match-p ":DATE: 1855" text))
         (should (string-match-p ":CUSTOM_ID: soule1855" text))
         ;; Back-link added under the original; original props intact.
-        (should (string-match-p "Earlier edition: \\[\\[#soule1855\\]\\]" text))
+        (should (string-match-p "Another edition: \\[\\[#soule1855\\]\\]" text))
         (should (string-match-p ":CUSTOM_ID: soule1966" text))
         (should (string-match-p "Original note\\." text))))))
 
@@ -214,7 +215,7 @@
       (re-search-forward "TOREAD Some Book")
       (should-error (org-reading-list-ia--add-edition cand) :type 'user-error)
       ;; Buffer unmodified: no new entry, no back-link.
-      (should-not (string-match-p "Earlier edition" (buffer-string)))
+      (should-not (string-match-p "Another edition" (buffer-string)))
       (should-not (string-match-p "somebook1900" (buffer-string))))))
 
 (ert-deftest org-reading-list-ia-test-format-row ()
@@ -322,8 +323,32 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
       (call-interactively 'org-reading-list--dispatch-find-editions)
       (should (eq captured t)))))
 
+(ert-deftest org-reading-list-ia-test-search-returns-nil-on-fetch-failure ()
+  "When fetch-json returns nil, --search returns nil."
+  (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+             (lambda (_url) nil)))
+    (should (null (org-reading-list-ia--search "Author, A" "A Title" 5)))))
 
+(ert-deftest org-reading-list-ia-test-year-int-no-digits ()
+  "Non-digit string yields nil from --year-int."
+  (should (null (org-reading-list-ia--year-int "no-digits"))))
 
+(ert-deftest org-reading-list-ia-test-editions-truncated ()
+  "When matches exceed cap, :truncated is non-nil."
+  (cl-letf (((symbol-function 'org-reading-list-ia--search)
+             (lambda (_a _t _rows)
+               (list '(:identifier "i1" :title "The Annals"
+                       :creator "Soulé, Frank" :year "1855")
+                     '(:identifier "i2" :title "The Annals"
+                       :creator "Soulé, Frank" :year "1860"))))
+            ((symbol-function 'org-reading-list-ia--metadata)
+             (lambda (_id)
+               '(:ppi 300 :imagecount 400 :open t :google nil
+                 :olid nil :scan t))))
+    (let* ((org-reading-list-ia-max-candidates 1)
+           (res (org-reading-list-ia--editions
+                 "Soulé, Frank" "The Annals")))
+      (should (plist-get res :truncated)))))
 
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here
