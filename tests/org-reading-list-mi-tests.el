@@ -526,6 +526,51 @@
       (goto-char (point-min))
       (should (equal (org-reading-list-mi--entry-bibid) "b999")))))
 
+(ert-deftest org-reading-list-mi-test-apply-update-no-prompt-skips-differing ()
+  ;; With NO-PROMPT, a differing non-empty field is left alone (never prompts),
+  ;; while empty fields are still filled.
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD A Book\n:PROPERTIES:\n:ABSTRACT: keep me\n:END:\n")
+    (goto-char (point-min))
+    (let ((data (list :title "A Book"
+                      :props '(("ABSTRACT" . "do not use") ("LCC" . "F999")))))
+      (cl-letf (((symbol-function 'y-or-n-p)
+                 (lambda (&rest _) (error "must not prompt in no-prompt mode"))))
+        (let ((changed (org-reading-list-mi--apply-update data t)))
+          (should (equal (org-entry-get nil "ABSTRACT") "keep me"))
+          (should (equal (org-entry-get nil "LCC") "F999"))
+          (should (member "LCC" changed))
+          (should-not (member "ABSTRACT" changed)))))))
+
+(ert-deftest org-reading-list-mi-test-entry-record-data-failsafe ()
+  ;; No confident bib id -> nil, so callers can fail safe.
+  (cl-letf (((symbol-function 'org-reading-list-mi--entry-bibid) (lambda () nil)))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* TOREAD X\n:PROPERTIES:\n:TITLE: X\n:END:\n")
+      (goto-char (point-min))
+      (should-not (org-reading-list-mi--entry-record-data)))))
+
+(ert-deftest org-reading-list-mi-test-entry-record-data-builds ()
+  ;; A confident bib id + record yields entry-data.
+  (cl-letf (((symbol-function 'org-reading-list-mi--entry-bibid) (lambda () "b1"))
+            ((symbol-function 'org-reading-list-mi--bib-record)
+             (lambda (_) '(record nil
+                                  (datafield ((tag . "245") (ind1 . "1") (ind2 . "0"))
+                                             (subfield ((code . "a")) "X /")))))
+            ((symbol-function 'org-reading-list--entry-data) (lambda (&rest _) nil)))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* TOREAD X\n:PROPERTIES:\n:TITLE: X\n:END:\n")
+      (goto-char (point-min))
+      (let ((data (org-reading-list-mi--entry-record-data)))
+        (should data)
+        (should (equal (plist-get data :title) "X"))))))
+
+
+
+
 
 
 

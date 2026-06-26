@@ -332,11 +332,13 @@ appended.  Returns the merged string."
                     parts)))
       (string-join (if replaced merged (append merged (list pair))) "; "))))
 
-(defun org-reading-list-mi--apply-update (data)
+(defun org-reading-list-mi--apply-update (data &optional no-prompt)
   "Update the Org entry at point from entry-data DATA.
 Adds the MILIB holdings code and call number, fills empty properties,
 and overwrites a differing non-empty property only after `y-or-n-p'
-confirmation.  Return the list of property names changed."
+confirmation.  With NO-PROMPT non-nil, differing properties are left
+unchanged instead of prompting, for unattended or bulk use.  Return the
+list of property names changed."
   (let ((props (plist-get data :props))
         (changed '()))
     ;; Holdings + call number.
@@ -359,6 +361,7 @@ confirmation.  Return the list of property names changed."
               (org-entry-put nil name val)
               (push name changed))
              ((and (not (equal current val))
+                   (not no-prompt)
                    (y-or-n-p (format "Replace :%s: %S with %S? "
                                      name current val)))
               (org-entry-put nil name val)
@@ -443,21 +446,29 @@ editions (print, eBook, DVD, audiobook) can be told apart."
             (and author (format " - %s" author))
             (and tags (format "  [%s]" (string-join tags ", "))))))
 
+(defun org-reading-list-mi--entry-record-data ()
+  "Return MILibrary entry-data for the Org entry at point, or nil.
+Resolve the entry's bib id with `org-reading-list-mi--entry-bibid'
+\(guarded by author and year for title searches), fetch its MARC record,
+and build entry-data.  Return nil when no confident bib id or record is
+found, so callers fail safe instead of enriching from a wrong record."
+  (let* ((bibid (ignore-errors (org-reading-list-mi--entry-bibid)))
+         (rec (and bibid (org-reading-list-mi--bib-record bibid))))
+    (and rec (org-reading-list-mi--entry-data rec))))
+
+
 
 ;;;###autoload
 (defun org-reading-list-mi-enrich ()
   "Enrich the Org entry at point from its MILibrary record.
-Looks the entry up in MILibrary by :ISBN: (or :TITLE:), fetches the
-matching record as XML, and applies the update: add the MILIB holdings
-code and call number, fill empty properties, and refresh differing
-properties on confirmation.  Signal a `user-error' when no MILibrary
-record is found."
+Looks the entry up in MILibrary by :ISBN: (or :TITLE:, guarded by author
+and year), fetches the matching record as XML, and applies the update:
+add the MILIB holdings code and call number, fill empty properties, and
+refresh differing properties on confirmation.  Signal a `user-error'
+when no MILibrary record is found."
   (interactive)
-  (let* ((bibid (or (org-reading-list-mi--entry-bibid)
-                    (user-error "No MILibrary match for this entry")))
-         (rec (or (org-reading-list-mi--bib-record bibid)
-                  (user-error "No MARC record for %s" bibid)))
-         (data (org-reading-list-mi--entry-data rec))
+  (let* ((data (or (org-reading-list-mi--entry-record-data)
+                   (user-error "No MILibrary match for this entry")))
          (changed (org-reading-list-mi--apply-update data)))
     (message "Enriched from MILibrary%s"
              (if changed (format ": %s" (string-join changed ", "))
