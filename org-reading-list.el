@@ -46,7 +46,7 @@
 ;;                                   adding.
 ;;   `org-reading-list-capture'      The same, shaped for org-capture
 ;;                                   templates via "%(...)".
-;;   `org-reading-list-loc-enrich'   Fill missing LCCN/OCLC/LCC/DDC on
+;;   `org-reading-list-enrich-loc'   Fill missing LCCN/OCLC/LCC/DDC on
 ;;                                   the entry at point from the Library
 ;;                                   of Congress catalog (SRU/MARCXML).
 ;;   `org-reading-list-loc-tags'     Harvest LoC 650/651 subject
@@ -1485,7 +1485,7 @@ Existing tags are kept and merged unless REPLACE is non-nil.  At most
 ;;;; Library of Congress: commands
 
 ;;;###autoload
-(defun org-reading-list-loc-enrich (&optional force)
+(defun org-reading-list-enrich-loc (&optional force)
   "Fill missing identifier properties of the Org entry at point from LoC.
 Queries the LC Catalog over SRU by the entry's :ISBN:, or by :LCCN:
 when there is no ISBN (pre-ISBN books), or by :TITLE: and :AUTHOR:
@@ -1515,7 +1515,7 @@ pre-publication CIP records once LoC completes them."
 ;;;###autoload
 (defun org-reading-list-loc-tags (&optional replace)
   "Add LoC subject headings to the Org entry at point as tags.
-Queries like `org-reading-list-loc-enrich' and harvests 650/651
+Queries like `org-reading-list-enrich-loc' and harvests 650/651
 fields, each heading and subdivision becoming a normalized tag.
 Existing tags are merged with the new ones; with a prefix argument
 REPLACE, existing tags are replaced.  Prune to your tag vocabulary

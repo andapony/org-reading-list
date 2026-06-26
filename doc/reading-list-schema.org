@@ -268,11 +268,11 @@ Open Library paths refer to the books API with =jscmd=data=
   When the OL edition itself carries no ISBN or LCCN, the capture code
   runs one title/author SRU search against LoC and fills in the
   LCCN/OCLC/LCC/DDC it finds, keeping the record only when its author
-  and year agree with OL's; =M-x org-reading-list-loc-enrich= does the
+  and year agree with OL's; =M-x org-reading-list-enrich-loc= does the
   same on demand for an entry that has a :TITLE: and :AUTHOR: but
   neither identifier.
 - *Summaries*: any LoC record consulted (the fallback, the title/author
-  bridge, or =loc-enrich=) contributes its MARC 520 summary to
+  bridge, or =enrich-loc=) contributes its MARC 520 summary to
   :ABSTRACT: when present, kept verbatim. Open Library's =data= view
   exposes no description, so the summary is LoC's alone; 520s are
   uncommon outside fiction, children's, and recently cataloged or
@@ -355,7 +355,7 @@ needed; keep them short, uppercase, and stable.
 
 =M-x org-reading-list-set-holdings= (in org-reading-list.el) sets the
 property with completion over the known codes.
-=M-x org-reading-list-mi-search= and =M-x org-reading-list-mi-enrich=
+=M-x org-reading-list-search= and =M-x org-reading-list-enrich-mi=
 (in org-reading-list-mi.el) populate =:HOLDINGS: MILIB= and
 =:CALLNO: MILIB …= automatically from the MI catalog's MARC (fields
 092/099/090).

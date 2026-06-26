@@ -92,7 +92,7 @@ template into the =use-package= block from [[*Installation][Installation]]:
 (use-package org-reading-list
   :ensure nil
   :commands (org-reading-list-insert
-             org-reading-list-loc-enrich
+             org-reading-list-enrich-loc
              org-reading-list-loc-tags
              org-reading-list-set-holdings
              org-reading-list-download-pdf)
@@ -195,7 +195,7 @@ reading-list file:
   from a title/author search, kept only when the author and year
   agree with Open Library's. Any LoC record consulted also seeds
   :ABSTRACT: from its MARC 520 summary, when it has one.
-- =M-x org-reading-list-loc-enrich= on an entry: fills missing
+- =M-x org-reading-list-enrich-loc= on an entry: fills missing
   LCCN/OCLC/LCC/DDC and the :ABSTRACT: summary from the Library of
   Congress record (queried by ISBN, by LCCN for pre-ISBN books, or by
   :TITLE:+:AUTHOR: when the entry has neither identifier — guarded by
@@ -264,12 +264,12 @@ Mechanics' Institute Library catalog (milibrary.org):
 (require 'org-reading-list-mi)
 #+end_src
 
-- =M-x org-reading-list-mi-search=: searches milibrary.org by title
+- =M-x org-reading-list-search=: searches milibrary.org by title
   (a prefix argument lets you choose author, keyword, or ISBN instead),
   presents matching results, and either captures a new entry or updates
   an existing one — adding =MILIB= to =:HOLDINGS:= and filling
   =:CALLNO: MILIB …= from the MI catalog's MARC record.
-- =M-x org-reading-list-mi-enrich=: enriches the Org entry at point
+- =M-x org-reading-list-enrich-mi=: enriches the Org entry at point
   from its MILibrary record: attaches =MILIB= holdings and call number,
   fills empty fields from MARC, and offers to refresh any differing
   fields.

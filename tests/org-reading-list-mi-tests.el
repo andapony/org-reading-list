@@ -419,14 +419,14 @@
                        :props (list (cons "TITLE" "The New Gilded Age")
                                     (cons "ABSTRACT" "short")))))
               ((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
-      (org-reading-list-mi-enrich)
+      (org-reading-list-enrich-mi)
       (should (string-match-p "MILIB" (org-entry-get nil "HOLDINGS")))
       (should (equal (org-entry-get nil "CALLNO") "MILIB 973.92 N53"))
       (should (string-match-p "essays"
                               (or (org-entry-get nil "ABSTRACT") ""))))))
 
 (ert-deftest org-reading-list-mi-test-search-writes-subjects-and-projects ()
-  ;; mi-search stores the full :SUBJECTS: and projects the heading tags.
+  ;; search stores the full :SUBJECTS: and projects the heading tags.
   (let* ((tmp (make-temp-file "orl-mi-subj" nil ".org"))
          (org-reading-list-file tmp)
          (org-reading-list-headline "Books")
@@ -449,7 +449,7 @@
                              :subjects '("gold_discoveries" "history")
                              :tags '("gold_discoveries" "history")
                              :props '(("TITLE" . "Gold Book") ("BTYPE" . "book"))))))
-            (org-reading-list-mi-search))
+            (org-reading-list-search))
           (with-current-buffer (find-file-noselect tmp)
             (goto-char (point-min))
             (should (re-search-forward "^\\*\\* TOREAD Gold Book.*:gold_rush:$" nil t))

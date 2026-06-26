@@ -459,7 +459,7 @@ found, so callers fail safe instead of enriching from a wrong record."
 
 
 ;;;###autoload
-(defun org-reading-list-mi-enrich ()
+(defun org-reading-list-enrich-mi ()
   "Enrich the Org entry at point from its MILibrary record.
 Looks the entry up in MILibrary by :ISBN: (or :TITLE:, guarded by author
 and year), fetches the matching record as XML, and applies the update:
@@ -487,7 +487,7 @@ when no record matches.  Registered on
 
 
 ;;;###autoload
-(defun org-reading-list-mi-search (&optional choose-index)
+(defun org-reading-list-search (&optional choose-index)
   "Search MILibrary, pick a result, and capture or update it.
 Prompts for a title query (with a prefix arg CHOOSE-INDEX, first pick
 the search index: title, author, keyword, or ISBN).  The chosen

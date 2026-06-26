@@ -867,7 +867,7 @@ DDC-nil case.")
                           "Barry, T. A."))))))
 
 (ert-deftest org-reading-list-test-loc-enrich-by-title-author ()
-  ;; loc-enrich works from a title/author-only entry, guarded by author.
+  ;; enrich-loc works from a title/author-only entry, guarded by author.
   (with-temp-buffer
     (org-mode)
     (insert "* TOREAD Men and memories\n:PROPERTIES:\n"
@@ -878,7 +878,7 @@ DDC-nil case.")
                (lambda (url)
                  (should (string-match-p "bath\\.title" url))
                  org-reading-list-test--loc-men-memories-dom)))
-      (org-reading-list-loc-enrich)
+      (org-reading-list-enrich-loc)
       (should (equal (org-entry-get nil "LCCN") "02026842"))
       (should (equal (org-entry-get nil "LCC") "F869.S3 B18"))
       (should (equal (org-entry-get nil "ABSTRACT")
@@ -896,7 +896,7 @@ DDC-nil case.")
     (cl-letf (((symbol-function 'org-reading-list--fetch-xml)
                (lambda (_url)
                  org-reading-list-test--loc-men-memories-dom)))
-      (should-error (org-reading-list-loc-enrich) :type 'user-error))))
+      (should-error (org-reading-list-enrich-loc) :type 'user-error))))
 
 ;;;; Internet Archive PDF download
 
