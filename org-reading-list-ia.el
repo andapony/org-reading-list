@@ -127,6 +127,38 @@ guards against same-title, wrong-author hits."
              (max 1 (/ (1+ (length want)) 2)))
          t)))
 
+(defun org-reading-list-ia--metadata (identifier)
+  "Fetch IA metadata for IDENTIFIER; return a quality plist, or nil.
+The plist has :ppi (integer) :imagecount (integer) :open (boolean)
+:google (boolean) :olid (string or nil) and :scan t.  Returns nil when
+the item has no readable scan (a catalog stub)."
+  (let* ((url (concat "https://archive.org/metadata/" identifier))
+         (json (org-reading-list--fetch-json url))
+         (md (cdr (assq 'metadata json))))
+    (when md
+      (let* ((field (lambda (k)
+                      (downcase (org-reading-list-ia--as-string
+                                 (cdr (assq k md))))))
+             (imagecount (string-to-number (funcall field 'imagecount)))
+             (ppi (string-to-number (funcall field 'ppi)))
+             (has-scandate (and (assq 'scandate md) t))
+             (olid (let ((v (org-reading-list-ia--as-string
+                             (cdr (assq 'openlibrary_edition md)))))
+                     (unless (string-empty-p v) v))))
+        (when (or (> imagecount 0) has-scandate)
+          (list :ppi ppi
+                :imagecount imagecount
+                :open (not (equal (funcall field 'access-restricted-item)
+                                  "true"))
+                :google (and (or (string-match-p "google" (funcall field 'contributor))
+                                 (string-match-p "google" (funcall field 'sponsor))
+                                 (string-match-p "googlebooks" (funcall field 'collection))
+                                 (string-suffix-p "goog" (downcase identifier)))
+                             t)
+                :olid olid
+                :scan t))))))
+
+
 
 
 

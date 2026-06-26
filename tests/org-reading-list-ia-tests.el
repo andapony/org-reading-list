@@ -66,6 +66,45 @@
     (should-not (org-reading-list-ia--candidate-match-p
                  thin "Soulé, Frank" "The Annals of San Francisco"))))
 
+(ert-deftest org-reading-list-ia-test-metadata-google-scan ()
+  (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+             (lambda (_url)
+               '((metadata
+                  . ((identifier . "annals00souggoog")
+                     (contributor . "Google")
+                     (collection . ("americana" "googlebooks"))
+                     (ppi . "300")
+                     (imagecount . "560")
+                     (openlibrary_edition . "OL1234M")
+                     (scandate . "20080101")))))))
+    (let ((md (org-reading-list-ia--metadata "annals00souggoog")))
+      (should (eq (plist-get md :google) t))
+      (should (eq (plist-get md :open) t))
+      (should (= (plist-get md :ppi) 300))
+      (should (= (plist-get md :imagecount) 560))
+      (should (equal (plist-get md :olid) "OL1234M"))
+      (should (eq (plist-get md :scan) t)))))
+
+(ert-deftest org-reading-list-ia-test-metadata-lending-and-stub ()
+  ;; Lending item: access-restricted-item true → :open nil but a scan.
+  (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+             (lambda (_url)
+               '((metadata . ((imagecount . "200")
+                              (access-restricted-item . "true")
+                              (scandate . "20100101")))))))
+    (let ((md (org-reading-list-ia--metadata "x")))
+      (should (eq (plist-get md :open) nil))
+      (should (eq (plist-get md :scan) t))
+      (should (eq (plist-get md :google) nil))))
+  ;; Catalog stub: no images, no scandate → nil (no readable scan).
+  (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+             (lambda (_url)
+               '((metadata . ((identifier . "stub")
+                              (mediatype . "texts")))))))
+    (should (null (org-reading-list-ia--metadata "stub")))))
+
+
+
 
 
 (provide 'org-reading-list-ia-tests)
