@@ -470,11 +470,11 @@ ROWS the hits, KEYS the cite keys of entries whose probe errored."
   "Major mode for the Internet Archive discovery report."
   (setq tabulated-list-format
         [("Cite key" 16 nil) ("Title" 34 nil) ("Listed" 7 nil)
-         ("Earliest scan" 14 nil) ("IA id" 22 nil)])
+         ("Open scan" 10 nil) ("IA id" 22 nil)])
   (tabulated-list-init-header))
 
 (defun org-reading-list-ia--report ()
-  "Report which reading-list entries have an earlier scanned edition."
+  "Report un-scanned entries that have an open scan available on IA."
   (let* ((src (current-buffer))
          (entries (save-restriction (widen) (org-reading-list-ia--scan-headings)))
          (res (org-reading-list-ia--report-rows entries))
@@ -506,12 +506,14 @@ ROWS the hits, KEYS the cite keys of entries whose probe errored."
                rows)))
       (tabulated-list-print)
       (local-set-key (kbd "RET") #'org-reading-list-ia--report-drill))
-    (message "%d of %d entries have an earlier scanned edition%s"
-             (length rows) (plist-get res :checked)
-             (if (plist-get res :errors)
-                 (format "; %d could not be checked"
-                         (length (plist-get res :errors)))
-               ""))
+    (message
+     "%d of %d entries without a local copy have an open scan available%s%s"
+     (length rows) (plist-get res :checked)
+     (let ((k (plist-get res :have-copy)))
+       (if (> k 0) (format "; %d already have a local copy" k) ""))
+     (if (plist-get res :errors)
+         (format "; %d could not be checked" (length (plist-get res :errors)))
+       ""))
     (pop-to-buffer buf)))
 
 ;;;###autoload

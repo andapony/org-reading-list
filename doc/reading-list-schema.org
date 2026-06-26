@@ -293,8 +293,11 @@ Open Library paths refer to the books API with =jscmd=data=
   the entry at point, ranks them earliest-year-first (Google-vs-library,
   open-vs-lending, and ppi break ties), and files the chosen edition as
   a *new* entry with its own cite key, back-linked to the original. With
-  a prefix argument (or the dispatch =-b= switch) it instead reports,
-  read-only, which entries have an earlier scanned edition available.
+  a prefix argument (or the dispatch =-b= switch) it instead
+  produces a read-only worklist: entries that have no local copy
+  (=:LOCALFILE:=) yet but for which an openly-readable scan is available
+  on the Internet Archive — your "scans to grab" list.  Press RET on a
+  row to drill into that entry's full candidate table.
 - *subjects* are uncontrolled-ish; expect both LCSH and folksonomy.
   Prune to your tag vocabulary when filing.
 

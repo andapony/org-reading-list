@@ -393,5 +393,29 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
       (should (equal (plist-get (nth 0 es) :localfile) "[[file:~/a.pdf]]"))
       (should (null (plist-get (nth 1 es) :localfile))))))
 
+(ert-deftest org-reading-list-ia-test-report-worklist ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n"
+            "** TOREAD A\n:PROPERTIES:\n:CUSTOM_ID: a1\n:TITLE: A\n"
+            ":AUTHOR: X, Y\n:DATE: 1900\n:END:\n"
+            "** TOREAD Owned\n:PROPERTIES:\n:CUSTOM_ID: o1\n:TITLE: Owned\n"
+            ":AUTHOR: P, Q\n:DATE: 1910\n:LOCALFILE: [[file:~/o.pdf]]\n:END:\n")
+    (let (msg)
+      (cl-letf (((symbol-function 'org-reading-list-ia--probe-open)
+                 (lambda (_a title)
+                   (when (equal title "A") '(:identifier "ia1" :year "1850"))))
+                ((symbol-function 'pop-to-buffer) (lambda (&rest _) nil))
+                ((symbol-function 'message)
+                 (lambda (fmt &rest args) (setq msg (apply #'format fmt args)))))
+        (org-reading-list-ia--report))
+      ;; Worklist message wording + the have-copy tally.
+      (should (string-match-p "without a local copy" msg))
+      (should (string-match-p "1 already have a local copy" msg))
+      ;; The buffer's open-scan column is relabelled.
+      (with-current-buffer "*IA discovery report*"
+        (should (equal (aref tabulated-list-format 3) '("Open scan" 10 nil)))))))
+
+
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here
