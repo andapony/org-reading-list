@@ -1740,6 +1740,15 @@ Signal a `user-error' when no such entry exists."
   (interactive)
   (org-reading-list-preen-tags (org-reading-list--dispatch-buffer-p)))
 
+(declare-function org-reading-list-ia-find-editions "org-reading-list-ia")
+
+
+(transient-define-suffix org-reading-list--dispatch-find-editions ()
+  "Run `org-reading-list-ia-find-editions', buffer-wide on the -b switch."
+  (interactive)
+  (org-reading-list-ia-find-editions (org-reading-list--dispatch-buffer-p)))
+
+
 ;;;###autoload (autoload 'org-reading-list-dispatch "org-reading-list" nil t)
 (transient-define-prefix org-reading-list-dispatch ()
   "Dispatch menu for org-reading-list."
@@ -1752,7 +1761,9 @@ Signal a `user-error' when no such entry exists."
     ("e" "Enrich (all)" org-reading-list--dispatch-enrich)
     ("l" "Enrich from LoC" org-reading-list-enrich-loc)
     ("m" "Enrich from MILib" org-reading-list-enrich-mi
-     :if (lambda () (fboundp 'org-reading-list-enrich-mi)))]
+     :if (lambda () (fboundp 'org-reading-list-enrich-mi)))
+    ("E" "Find IA editions" org-reading-list--dispatch-find-editions
+     :if (lambda () (fboundp 'org-reading-list-ia-find-editions)))]
    ["Curate"
     ("t" "Tags: review & apply" org-reading-list--dispatch-preen)]
    ["Files"

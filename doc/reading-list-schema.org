@@ -287,6 +287,14 @@ Open Library paths refer to the books API with =jscmd=data=
   is actually a PDF and points you at the item page if not. A link
   abbreviation =#+LINK: ia https://archive.org/details/%s= makes
   =[[ia:mountainsandmol00marrgoog]]= open the online reader.
+- *Finding earlier editions* — with =org-reading-list-ia= loaded,
+  =M-x org-reading-list-ia-find-editions= (dispatch: Enrich → "Find IA
+  editions", =E=) searches the Internet Archive for scanned editions of
+  the entry at point, ranks them earliest-year-first (Google-vs-library,
+  open-vs-lending, and ppi break ties), and files the chosen edition as
+  a *new* entry with its own cite key, back-linked to the original. With
+  a prefix argument (or the dispatch =-b= switch) it instead reports,
+  read-only, which entries have an earlier scanned edition available.
 - *subjects* are uncontrolled-ish; expect both LCSH and folksonomy.
   Prune to your tag vocabulary when filing.
 

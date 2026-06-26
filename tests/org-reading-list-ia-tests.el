@@ -311,7 +311,16 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
         (should (equal (plist-get (car (plist-get res :rows)) :citekey)
                        "soule1966"))))))
 
-
+(ert-deftest org-reading-list-ia-test-dispatch-suffix-defined ()
+  ;; The dispatch suffix exists and routes the -b switch to ALL.
+  (should (fboundp 'org-reading-list--dispatch-find-editions))
+  (let (captured)
+    (cl-letf (((symbol-function 'org-reading-list--dispatch-buffer-p)
+               (lambda () t))
+              ((symbol-function 'org-reading-list-ia-find-editions)
+               (lambda (all) (setq captured all))))
+      (call-interactively 'org-reading-list--dispatch-find-editions)
+      (should (eq captured t)))))
 
 
 
