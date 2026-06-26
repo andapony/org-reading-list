@@ -330,8 +330,9 @@ CURRENT-YEAR is the listed entry's year; the matching row is marked
 (defun org-reading-list-ia--pick ()
   "Add the edition on the current candidate-table line."
   (interactive)
-  (let ((row (nth (1- (line-number-at-pos)) org-reading-list-ia--rows))
-        (origin org-reading-list-ia--origin))
+  (let* ((id (tabulated-list-get-id))
+         (row (when id (nth (string-to-number id) org-reading-list-ia--rows)))
+         (origin org-reading-list-ia--origin))
     (when (and row origin)
       (with-current-buffer (marker-buffer origin)
         (save-excursion

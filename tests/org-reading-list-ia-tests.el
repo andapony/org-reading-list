@@ -257,6 +257,31 @@
         (org-reading-list-ia--act-on row))
       (should (string-match-p ":IA: annals1855" (buffer-string))))))
 
+(ert-deftest org-reading-list-ia-test-show-candidates-id-mapping ()
+  "Candidate buffer assigns sequential id text-property: row 0->\"0\", row 1->\"1\".
+This is the invariant that `org-reading-list-ia--pick' relies on when it
+calls `tabulated-list-get-id' to map the cursor position to a row plist."
+  (let ((rows (list
+               '(:identifier "annals1855" :year "1855" :year-int 1855
+                 :title "The Annals of San Francisco" :publisher "Appleton"
+                 :ppi 300 :imagecount 560 :open t :google nil :olid "OL1M")
+               '(:identifier "annals1966" :year "1966" :year-int 1966
+                 :title "The Annals of San Francisco" :publisher "Appleton"
+                 :ppi 150 :imagecount 400 :open t :google t :olid nil))))
+    (cl-letf (((symbol-function 'pop-to-buffer)
+               (lambda (buf &rest _) (set-buffer buf))))
+      (org-reading-list-ia--show-candidates rows 1966 nil nil))
+    (let ((buf (get-buffer "*IA editions*")))
+      (should buf)
+      (with-current-buffer buf
+        (goto-char (point-min))
+        (should (equal (tabulated-list-get-id) "0"))
+        (forward-line 1)
+        (should (equal (tabulated-list-get-id) "1"))))
+    (when (get-buffer "*IA editions*")
+      (kill-buffer "*IA editions*"))))
+
+
 
 
 (provide 'org-reading-list-ia-tests)
