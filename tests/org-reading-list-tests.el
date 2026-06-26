@@ -1350,6 +1350,49 @@ BODY may reference `file', the temp file's path."
         (should-not (plist-get r :loc))
         (should-not (plist-get r :ext))))))
 
+(ert-deftest org-reading-list-test-enrich-report ()
+  (should (equal (org-reading-list--enrich-report
+                  '(:ids ("ISBN") :loc ("LCCN" "LCC") :ext ("HOLDINGS") :subjects ("a" "b")))
+                 "filled ISBN, LCCN, LCC, HOLDINGS; subjects: 2"))
+  (should (equal (org-reading-list--enrich-report
+                  '(:ids nil :loc nil :ext nil :subjects ("a")))
+                 "no new fields; subjects: 1"))
+  (should (equal (org-reading-list--enrich-report
+                  '(:ids nil :loc nil :ext nil :subjects nil))
+                 "nothing new")))
+
+(ert-deftest org-reading-list-test-enrich-changed-p ()
+  (should (org-reading-list--enrich-changed-p '(:loc ("LCCN"))))
+  (should (org-reading-list--enrich-changed-p '(:ext ("HOLDINGS"))))
+  (should-not (org-reading-list--enrich-changed-p
+               '(:ids nil :loc nil :ext nil :subjects ("a")))))
+
+(ert-deftest org-reading-list-test-enrich-all-reports-progress ()
+  ;; The whole-file pass confirms, enriches each entry non-interactively,
+  ;; and reports how many changed.
+  (with-temp-buffer
+    (org-mode)
+    (insert "* TOREAD A\n:PROPERTIES:\n:BTYPE: book\n:END:\n"
+            "* TOREAD B\n:PROPERTIES:\n:BTYPE: book\n:END:\n")
+    (let ((calls 0) (msgs '()))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'org-reading-list--enrich-entry)
+                 (lambda (&optional _np)
+                   (setq calls (1+ calls))
+                   (if (= calls 1) '(:loc ("LCCN"))
+                     '(:ids nil :loc nil :ext nil :subjects nil))))
+                ((symbol-function 'message)
+                 (lambda (fmt &rest args)
+                   (push (ignore-errors (apply #'format fmt args)) msgs)
+                   nil)))
+        (org-reading-list-enrich t))
+      (should (= calls 2))
+      (should (seq-find (lambda (m) (and m (string-match-p "1/2" m))) msgs))
+      (should (seq-find (lambda (m) (and m (string-match-p "Enriched 1 of 2" m))) msgs)))))
+
+
+
+
 
 
 

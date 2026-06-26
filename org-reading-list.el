@@ -633,6 +633,66 @@ confident match contributes nothing.  Return a report plist with keys
     (org-reading-list--reproject-entry-tags)
     (list :ids ids :loc loc :ext ext :subjects subjects)))
 
+(defun org-reading-list--enrich-report (report)
+  "Render an enrichment REPORT plist as a one-line summary string.
+REPORT has keys :ids :loc :ext (lists of filled property names) and
+:subjects (the canonical token list).  Name the filled properties and
+the subject count, or report that nothing was added."
+  (let ((filled (append (plist-get report :ids)
+                        (plist-get report :loc)
+                        (plist-get report :ext)))
+        (subjects (plist-get report :subjects)))
+    (cond
+     ((and filled subjects)
+      (format "filled %s; subjects: %d"
+              (string-join filled ", ") (length subjects)))
+     (filled (format "filled %s" (string-join filled ", ")))
+     (subjects (format "no new fields; subjects: %d" (length subjects)))
+     (t "nothing new"))))
+
+(defun org-reading-list--enrich-changed-p (report)
+  "Non-nil if enrichment REPORT recorded any newly filled property.
+Looks at the :ids, :loc, and :ext stages; a :SUBJECTS: re-canonicalization
+alone does not count as a change."
+  (or (plist-get report :ids)
+      (plist-get report :loc)
+      (plist-get report :ext)))
+
+;;;###autoload
+(defun org-reading-list-enrich (&optional all)
+  "Enrich the entry at point from every source that confidently matches.
+Resolve a hard identifier, fill LC Catalog fields, add MILibrary holdings
+and call number (and any other source on `org-reading-list-enrich-functions'),
+then union :SUBJECTS: and re-derive the heading tags.  Existing values
+win; a differing non-empty field is refreshed only on confirmation.
+
+With a prefix argument ALL, enrich every book entry (non-empty :BTYPE:)
+in the buffer after confirmation, without prompting per field, reporting
+progress in the echo area; each entry makes synchronous network
+requests."
+  (interactive "P")
+  (if all
+      (let ((n (length (org-map-entries #'ignore "BTYPE={.}")))
+            (i 0)
+            (updated 0))
+        (when (yes-or-no-p (format "Enrich %d entries? " n))
+          (org-map-entries
+           (lambda ()
+             (setq i (1+ i))
+             (message "Enriching %d/%d: %s..."
+                      i n (org-get-heading t t t t))
+             (when (org-reading-list--enrich-changed-p
+                    (org-reading-list--enrich-entry t))
+               (setq updated (1+ updated))))
+           "BTYPE={.}")
+          (message "Enriched %d of %d entries" updated n)))
+    (message "Enriched: %s"
+             (org-reading-list--enrich-report
+              (org-reading-list--enrich-entry)))))
+
+
+
+
 
 
 (defun org-reading-list--derive-tags (data)
