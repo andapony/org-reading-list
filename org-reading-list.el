@@ -79,6 +79,9 @@
 
 (require 'transient)
 
+(require 'ucs-normalize)
+
+
 (defgroup org-reading-list nil
   "Bibliographic reading list in Org mode."
   :group 'org
@@ -297,7 +300,9 @@ Refine to YYYY-MM by hand when finer precision is known."
   "Return the un-suffixed cite key for AUTHOR (inverted form) and DATE."
   (let* ((surname (if author (car (split-string author ",")) "anon"))
          (year (and date (substring date 0 (min 4 (length date)))))
-         (base (concat (org-reading-list--slug surname) (or year ""))))
+         (base (concat (org-reading-list--slug
+                        (ucs-normalize-NFD-string surname))
+                       (or year ""))))
     (if (string-empty-p base) "anon" base)))
 
 (defun org-reading-list--citekey-unique (base existing)

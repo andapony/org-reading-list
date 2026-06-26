@@ -217,9 +217,7 @@ for collision suffixing."
          (year (org-reading-list-ia--year-int (plist-get cand :year)))
          (year-str (and year (number-to-string year)))
          (key (org-reading-list--citekey-unique
-               (org-reading-list--citekey-base
-                (ucs-normalize-NFD-string (or author ""))
-                year-str)
+               (org-reading-list--citekey-base author year-str)
                existing-keys))
          (tags (plist-get source :tags))
          (pages (let ((n (plist-get cand :imagecount)))

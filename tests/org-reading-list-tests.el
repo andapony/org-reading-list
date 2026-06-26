@@ -292,6 +292,14 @@
 (ert-deftest org-reading-list-test-citekey-base-anon ()
   (should (equal (org-reading-list--citekey-base nil "1855") "anon1855")))
 
+(ert-deftest org-reading-list-test-citekey-base-accented ()
+  "Accented characters in surnames are transliterated, not stripped."
+  (should (equal (org-reading-list--citekey-base "Soulé, Frank" "1855")
+                 "soule1855"))
+  (should (equal (org-reading-list--citekey-base "Lotchin, Roger W." "1997")
+                 "lotchin1997")))
+
+
 (ert-deftest org-reading-list-test-citekey-unique-suffixing ()
   (should (equal (org-reading-list--citekey-unique
                   "smith2020" '("smith2020" "smith2020a"))
