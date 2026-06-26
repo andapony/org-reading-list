@@ -365,5 +365,18 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
                  "Soulé, Frank" "The Annals")))
       (should (plist-get res :truncated)))))
 
+(ert-deftest org-reading-list-ia-test-scan-headings-localfile ()
+  "scan-headings captures :LOCALFILE: value, or nil when absent."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n"
+            "** TOREAD A\n:PROPERTIES:\n:CUSTOM_ID: a1\n:TITLE: A\n"
+            ":AUTHOR: X, Y\n:DATE: 1900\n:LOCALFILE: [[file:~/a.pdf]]\n:END:\n"
+            "** TOREAD B\n:PROPERTIES:\n:CUSTOM_ID: b1\n:TITLE: B\n"
+            ":AUTHOR: P, Q\n:DATE: 1910\n:END:\n")
+    (let ((es (org-reading-list-ia--scan-headings)))
+      (should (equal (plist-get (nth 0 es) :localfile) "[[file:~/a.pdf]]"))
+      (should (null (plist-get (nth 1 es) :localfile))))))
+
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here

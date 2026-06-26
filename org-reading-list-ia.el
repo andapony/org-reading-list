@@ -409,7 +409,7 @@ metadata is fetched."
 
 (defun org-reading-list-ia--scan-headings ()
   "Return entry plists for every keyed heading in the current buffer.
-Each plist has :pos :citekey :title :date and :author."
+Each plist has :pos :citekey :title :date :author and :localfile."
   (let (entries)
     (org-map-entries
      (lambda ()
@@ -419,7 +419,8 @@ Each plist has :pos :citekey :title :date and :author."
                        :citekey key
                        :title (org-entry-get nil "TITLE")
                        :date (org-entry-get nil "DATE")
-                       :author (org-entry-get nil "AUTHOR"))
+                       :author (org-entry-get nil "AUTHOR")
+                       :localfile (org-entry-get nil "LOCALFILE"))
                  entries)))))
     (nreverse entries)))
 
