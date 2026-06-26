@@ -5,7 +5,7 @@
 ;; Author: Rob Duncan
 ;; URL: https://github.com/andapony/org-reading-list
 ;; Version: 0.7.0
-;; Package-Requires: ((emacs "27.1") (org "9.4"))
+;; Package-Requires: ((emacs "28.1") (org "9.4"))
 ;; Keywords: bib, outlines
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -78,6 +78,8 @@
 (require 'dom)
 (require 'org)
 (require 'crm)
+
+(require 'transient)
 
 (defgroup org-reading-list nil
   "Bibliographic reading list in Org mode."
