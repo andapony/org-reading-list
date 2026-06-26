@@ -119,11 +119,34 @@
     (should (equal (mapcar (lambda (r) (plist-get r :id)) ranked)
                    '("b" "a" "c" "d")))))
 
-
-
-
-
-
+(ert-deftest org-reading-list-ia-test-editions-pipeline ()
+  (cl-letf (((symbol-function 'org-reading-list-ia--search)
+             (lambda (_a _t _rows)
+               (list '(:identifier "i1855" :title "The Annals of San Francisco"
+                       :creator "Soulé, Frank" :year "1855")
+                     '(:identifier "iwrong" :title "The Annals of San Francisco"
+                       :creator "Justice, Donald" :year "1850")
+                     '(:identifier "i1966" :title "The Annals of San Francisco"
+                       :creator "Soulé, Frank" :year "1966")
+                     '(:identifier "istub" :title "The Annals of San Francisco"
+                       :creator "Soulé, Frank" :year "1900"))))
+            ((symbol-function 'org-reading-list-ia--metadata)
+             (lambda (id)
+               (pcase id
+                 ("i1855" '(:ppi 300 :imagecount 500 :open t :google nil
+                            :olid "OL1M" :scan t))
+                 ("i1966" '(:ppi 150 :imagecount 400 :open t :google t
+                            :olid nil :scan t))
+                 ("istub" nil)             ; no readable scan → dropped
+                 (_ (error "unexpected metadata fetch: %s" id))))))
+    (let* ((res (org-reading-list-ia--editions
+                 "Soulé, Frank" "The Annals of San Francisco"))
+           (rows (plist-get res :rows)))
+      ;; Wrong-author filtered before metadata; stub dropped; 1855 first.
+      (should (equal (mapcar (lambda (r) (plist-get r :identifier)) rows)
+                     '("i1855" "i1966")))
+      (should (= (plist-get (car rows) :year-int) 1855))
+      (should (null (plist-get res :truncated))))))
 
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here

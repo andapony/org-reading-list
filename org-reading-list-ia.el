@@ -180,10 +180,31 @@ ppi first.  Rows with no :year-int sort last."
              (t (> (or (plist-get a :ppi) 0)
                    (or (plist-get b :ppi) 0))))))))
 
-
-
-
-
+(defun org-reading-list-ia--editions (author title)
+  "Discover ranked scanned editions of TITLE by AUTHOR on IA.
+Return a plist (:rows ROWS :truncated BOOL).  ROWS are ranked candidate
+plists enriched with metadata; candidates failing the match guard or
+lacking a readable scan are dropped.  At most
+`org-reading-list-ia-max-candidates' matches are processed."
+  (let* ((cap org-reading-list-ia-max-candidates)
+         (all (org-reading-list-ia--search author title (1+ cap)))
+         (matches (seq-filter
+                   (lambda (c)
+                     (org-reading-list-ia--candidate-match-p c author title))
+                   all))
+         (truncated (> (length matches) cap))
+         (use (seq-take matches cap))
+         (rows nil))
+    (dolist (c use)
+      (let ((md (org-reading-list-ia--metadata (plist-get c :identifier))))
+        (when md
+          (push (append c md
+                        (list :year-int
+                              (org-reading-list-ia--year-int
+                               (plist-get c :year))))
+                rows))))
+    (list :rows (org-reading-list-ia--rank (nreverse rows))
+          :truncated truncated)))
 
 (provide 'org-reading-list-ia)
 ;;; org-reading-list-ia.el ends here
