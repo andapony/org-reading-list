@@ -297,35 +297,50 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
     (when (get-buffer "*IA editions*")
       (kill-buffer "*IA editions*"))))
 
-(ert-deftest org-reading-list-ia-test-probe ()
-  (cl-letf (((symbol-function 'org-reading-list-ia--search)
-             (lambda (_a _t _rows)
-               (list '(:identifier "i1966" :title "The Annals"
-                       :creator "Soulé, Frank" :year "1966")
-                     '(:identifier "i1855" :title "The Annals"
-                       :creator "Soulé, Frank" :year "1855")
-                     '(:identifier "iwrong" :title "The Annals"
-                       :creator "Nobody, A" :year "1800")))))
-    (let ((hit (org-reading-list-ia--probe "Soulé, Frank" "The Annals")))
-      ;; Earliest *matching* candidate; wrong-author 1800 excluded.
-      (should (equal (plist-get hit :identifier) "i1855")))))
+(ert-deftest org-reading-list-ia-test-probe-open ()
+  (let (captured-open)
+    (cl-letf (((symbol-function 'org-reading-list-ia--search)
+               (lambda (_a _t _rows &optional open)
+                 (setq captured-open open)
+                 (list '(:identifier "i1966" :title "The Annals"
+                         :creator "Soulé, Frank" :year "1966")
+                       '(:identifier "i1855" :title "The Annals"
+                         :creator "Soulé, Frank" :year "1855")
+                       '(:identifier "iwrong" :title "The Annals"
+                         :creator "Nobody, A" :year "1800")))))
+      (let ((hit (org-reading-list-ia--probe-open "Soulé, Frank" "The Annals")))
+        ;; The probe asked for open-only results.
+        (should (eq captured-open t))
+        ;; Earliest *matching* candidate; wrong-author 1800 excluded.
+        (should (equal (plist-get hit :identifier) "i1855"))))))
 
 (ert-deftest org-reading-list-ia-test-report-rows ()
-  (let ((entries (list '(:pos 1 :citekey "soule1966" :title "The Annals"
-                         :date "1966" :author "Soulé, Frank")
-                       '(:pos 2 :citekey "none2000" :title "No Scans"
-                         :date "2000" :author "Quiet, P"))))
-    (cl-letf (((symbol-function 'org-reading-list-ia--probe)
+  (let ((entries (list
+                  '(:pos 1 :citekey "soule1966" :title "The Annals"
+			 :date "1966" :author "Soulé, Frank")
+                  '(:pos 2 :citekey "none2000" :title "No Scans"
+			 :date "2000" :author "Quiet, P")
+                  '(:pos 3 :citekey "have1900" :title "Owned"
+			 :date "1900" :author "Have, A"
+			 :localfile "[[file:~/owned.pdf]]"))))
+    (cl-letf (((symbol-function 'org-reading-list-ia--probe-open)
                (lambda (_a title)
                  (when (equal title "The Annals")
                    '(:identifier "i1855" :year "1855")))))
       (let ((res (org-reading-list-ia--report-rows entries)))
+        ;; have1900 has a local copy -> counted, never probed.
+        (should (= (plist-get res :have-copy) 1))
+        ;; soule + none were probed.
         (should (= (plist-get res :checked) 2))
         (should (null (plist-get res :errors)))
-        ;; Only the entry with an earlier scan gets a row.
+        ;; Only soule produced an open hit.
         (should (= (length (plist-get res :rows)) 1))
         (should (equal (plist-get (car (plist-get res :rows)) :citekey)
-                       "soule1966"))))))
+                       "soule1966"))
+        (should (equal (plist-get (plist-get (car (plist-get res :rows))
+                                             :earliest)
+                                  :identifier)
+                       "i1855"))))))
 
 (ert-deftest org-reading-list-ia-test-dispatch-suffix-defined ()
   ;; The dispatch suffix exists and routes the -b switch to ALL.

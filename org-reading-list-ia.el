@@ -390,12 +390,13 @@ CURRENT-YEAR marks the listed edition; TRUNCATED notes a capped search."
         (org-reading-list-ia--show-candidates
          rows current origin (plist-get res :truncated))))))
 
-(defun org-reading-list-ia--probe (author title)
-  "Probe IA for an earlier scanned edition matching AUTHOR and TITLE.
-Return the earliest matching candidate plist, or nil.  No per-candidate
-metadata is fetched."
+(defun org-reading-list-ia--probe-open (author title)
+  "Probe IA for an openly-readable scan matching AUTHOR and TITLE.
+Return the earliest matching open candidate plist, or nil.  Restricts
+the search to open scans (excluding lending) and fetches no
+per-candidate metadata."
   (let* ((all (org-reading-list-ia--search
-               author title (1+ org-reading-list-ia-max-candidates)))
+               author title (1+ org-reading-list-ia-max-candidates) t))
          (matches (seq-filter
                    (lambda (c)
                      (org-reading-list-ia--candidate-match-p c author title))
@@ -425,23 +426,32 @@ Each plist has :pos :citekey :title :date :author and :localfile."
     (nreverse entries)))
 
 (defun org-reading-list-ia--report-rows (entries)
-  "Probe each of ENTRIES for an earlier scanned edition.
-Return a plist (:rows ROWS :checked N :errors KEYS).  Each row is the
-ENTRY plist with :earliest (the probe hit) added; only entries with a
-hit are included.  Probe errors are collected in :errors."
-  (let ((rows nil) (errors nil) (checked 0))
+  "Build worklist rows from ENTRIES.
+An entry whose :localfile is non-empty already has a local copy: it is
+counted into :have-copy and never probed.  Each remaining entry (with an
+:author and :title) is probed via `org-reading-list-ia--probe-open'; one
+that yields an open hit becomes a row (the entry plist with :earliest
+added).  Return a plist (:rows ROWS :checked M :have-copy K :errors
+KEYS): M is the number probed, K the number skipped as already-copied,
+ROWS the hits, KEYS the cite keys of entries whose probe errored."
+  (let ((rows nil) (errors nil) (checked 0) (have-copy 0))
     (dolist (e entries)
       (let ((author (plist-get e :author))
-            (title (plist-get e :title)))
-        (when (and author title)
+            (title (plist-get e :title))
+            (localfile (plist-get e :localfile)))
+        (cond
+         ((and localfile (not (string-empty-p localfile)))
+          (setq have-copy (1+ have-copy)))
+         ((and author title)
           (setq checked (1+ checked))
           (condition-case nil
-              (let ((hit (org-reading-list-ia--probe author title)))
+              (let ((hit (org-reading-list-ia--probe-open author title)))
                 (when hit
                   (push (append e (list :earliest hit)) rows)))
-            (error (push (plist-get e :citekey) errors))))))
+            (error (push (plist-get e :citekey) errors)))))))
     (list :rows (nreverse rows)
           :checked checked
+          :have-copy have-copy
           :errors (nreverse errors))))
 
 (defun org-reading-list-ia--report-drill ()
