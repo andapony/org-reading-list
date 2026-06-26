@@ -63,14 +63,17 @@ Accented letters are normalized via Unicode NFD before slugging."
                  (ucs-normalize-NFD-string raw))))
       (unless (string-empty-p key) key))))
 
-(defun org-reading-list-ia--search-url (author title rows)
+(defun org-reading-list-ia--search-url (author title rows &optional open)
   "Return the IA advancedsearch URL for AUTHOR and TITLE, ROWS results.
 The query requires the author surname and the significant title tokens
-and restricts to scanned texts."
+and restricts to scanned texts.  When OPEN is non-nil, also exclude the
+lending-only collections so only openly-readable scans match."
   (let* ((surname (or (org-reading-list-ia--surname author) ""))
          (tokens (org-reading-list-ia--title-tokens title))
-         (q (format "creator:(%s) AND title:(%s) AND mediatype:texts"
-                    surname (string-join tokens " "))))
+         (q (concat
+             (format "creator:(%s) AND title:(%s) AND mediatype:texts"
+                     surname (string-join tokens " "))
+             (if open " AND NOT collection:(inlibrary OR printdisabled)" ""))))
     (concat org-reading-list-ia--search-endpoint
             "?q=" (url-hexify-string q)
             "&fl[]=identifier&fl[]=title&fl[]=creator"
@@ -92,11 +95,12 @@ List-valued fields are joined with \"; \"."
   (let ((cell (assq key doc)))
     (when cell (org-reading-list-ia--as-string (cdr cell)))))
 
-(defun org-reading-list-ia--search (author title rows)
+(defun org-reading-list-ia--search (author title rows &optional open)
   "Query IA for AUTHOR and TITLE; return up to ROWS candidate plists.
 Each plist has :identifier :title :creator :year :publisher and
-:collection.  Returns nil on any fetch failure."
-  (let* ((url (org-reading-list-ia--search-url author title rows))
+:collection.  When OPEN is non-nil, restrict to openly-readable scans.
+Returns nil on any fetch failure."
+  (let* ((url (org-reading-list-ia--search-url author title rows open))
          (json (org-reading-list--fetch-json url))
          (docs (cdr (assq 'docs (cdr (assq 'response json))))))
     (mapcar

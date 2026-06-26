@@ -27,6 +27,21 @@
       (should (string-match-p "title:(annals)" q))
       (should (string-match-p "mediatype:texts" q)))))
 
+(ert-deftest org-reading-list-ia-test-search-url-open ()
+  (let* ((plain (org-reading-list-ia--search-url "Brown, John" "Reminiscences" 10))
+         (open (org-reading-list-ia--search-url "Brown, John" "Reminiscences" 10 t))
+         (excl (regexp-quote "NOT collection:(inlibrary OR printdisabled)"))
+         (qp (url-unhex-string
+              (progn (string-match "q=\\([^&]+\\)" plain) (match-string 1 plain))))
+         (qo (url-unhex-string
+              (progn (string-match "q=\\([^&]+\\)" open) (match-string 1 open)))))
+    (should-not (string-match-p excl qp))
+    (should (string-match-p excl qo))
+    ;; The base query is present in both.
+    (should (string-match-p "mediatype:texts" qp))
+    (should (string-match-p "mediatype:texts" qo))))
+
+
 (ert-deftest org-reading-list-ia-test-search-parses-docs ()
   (cl-letf (((symbol-function 'org-reading-list--fetch-json)
              (lambda (_url)
