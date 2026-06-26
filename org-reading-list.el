@@ -1736,6 +1736,45 @@ Signal a `user-error' when no such entry exists."
                                          nil t)
                         entries)))))
 
+(defun org-reading-list--dispatch-buffer-p ()
+  "Non-nil when the dispatch transient's \"--buffer\" switch is active."
+  (and (member "--buffer" (transient-args 'org-reading-list-dispatch)) t))
+
+(transient-define-suffix org-reading-list--dispatch-enrich ()
+  "Run `org-reading-list-enrich', whole-buffer when the -b switch is on."
+  (interactive)
+  (org-reading-list-enrich (org-reading-list--dispatch-buffer-p)))
+
+(transient-define-suffix org-reading-list--dispatch-preen ()
+  "Run `org-reading-list-preen-tags', whole-buffer when the -b switch is on."
+  (interactive)
+  (org-reading-list-preen-tags (org-reading-list--dispatch-buffer-p)))
+
+;;;###autoload (autoload 'org-reading-list-dispatch "org-reading-list" nil t)
+(transient-define-prefix org-reading-list-dispatch ()
+  "Dispatch menu for org-reading-list."
+  ["Scope" ("-b" "Whole buffer" "--buffer")]
+  [["Add"
+    ("s" "Search (MILib)" org-reading-list-search
+     :if (lambda () (fboundp 'org-reading-list-search)))
+    ("i" "Insert by ID" org-reading-list-insert)]
+   ["Enrich"
+    ("e" "Enrich (all)" org-reading-list--dispatch-enrich)
+    ("l" "Enrich from LoC" org-reading-list-enrich-loc)
+    ("m" "Enrich from MILib" org-reading-list-enrich-mi
+     :if (lambda () (fboundp 'org-reading-list-enrich-mi)))]
+   ["Curate"
+    ("t" "Tags: review & apply" org-reading-list--dispatch-preen)]
+   ["Files"
+    ("p" "Download PDF" org-reading-list-download-pdf)]
+   ["Record"
+    ("h" "Set holdings" org-reading-list-set-holdings)
+    ("k" "Backfill citekeys" org-reading-list-ensure-citekeys)]])
+
+
+
+
+
 ;;;###autoload
 (eval-after-load 'org
   '(org-link-set-parameters

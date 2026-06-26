@@ -1567,5 +1567,28 @@ BODY may reference `file', the temp file's path."
              (lambda (&rest _) "Foote, The Civil War (1963)")))
     (should (equal (org-reading-list-link-complete) "orl:foote1963"))))
 
+(ert-deftest org-reading-list-test-dispatch-scope-wrappers ()
+  ;; The wrappers pass `all' to the underlying command per the -b switch.
+  (let (captured)
+    (cl-letf (((symbol-function 'org-reading-list-enrich)
+               (lambda (&optional all) (setq captured (list 'enrich all))))
+              ((symbol-function 'org-reading-list-preen-tags)
+               (lambda (&optional all) (setq captured (list 'preen all))))
+              ((symbol-function 'transient-args) (lambda (_) '("--buffer"))))
+      (call-interactively 'org-reading-list--dispatch-enrich)
+      (should (equal captured '(enrich t)))
+      (call-interactively 'org-reading-list--dispatch-preen)
+      (should (equal captured '(preen t))))
+    (cl-letf (((symbol-function 'org-reading-list-enrich)
+               (lambda (&optional all) (setq captured (list 'enrich all))))
+              ((symbol-function 'transient-args) (lambda (_) '())))
+      (call-interactively 'org-reading-list--dispatch-enrich)
+      (should (equal captured '(enrich nil))))))
+
+(ert-deftest org-reading-list-test-dispatch-prefix-defined ()
+  (should (commandp 'org-reading-list-dispatch)))
+
+
+
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here
