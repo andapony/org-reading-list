@@ -93,7 +93,6 @@ template into the =use-package= block from [[*Installation][Installation]]:
   :ensure nil
   :commands (org-reading-list-insert
              org-reading-list-enrich-loc
-             org-reading-list-loc-tags
              org-reading-list-set-holdings
              org-reading-list-download-pdf)
   :custom
@@ -202,9 +201,6 @@ reading-list file:
   author and year). =C-u= overwrites existing values — useful for
   refreshing entries captured
   from pre-publication CIP records once LoC completes them.
-- =M-x org-reading-list-loc-tags=: adds the LoC subject headings as
-  normalized tags (=C-u= replaces instead of merging). Prune to your
-  own tag vocabulary afterward.
 - =M-x org-reading-list-set-holdings=: records availability with
   completion over your holdings codes.
 - =M-x org-reading-list-download-pdf=: for entries with an =:IA:=
@@ -234,14 +230,6 @@ entirely.  Set it as a file-local variable or in =.dir-locals.el=:
 The variable is marked =safe-local-variable= so Emacs will not prompt
 when the rewrite map is set this way.
 
-- =M-x org-reading-list-fetch-subjects=: populates =:SUBJECTS:= for the
-  entry at point by querying Open Library, the LC Catalog, MILibrary (when
-  loaded), and any other registered source, unioning the normalized subjects
-  they return.  It then re-derives the heading tags from the stored
-  subjects through the controlled vocabulary, as capture does.  With
-  =C-u=, does this for every book entry in the buffer after prompting for
-  confirmation.  Entries from which no source returns subjects are left
-  unchanged.
 - =M-x org-reading-list-lint-tags=: a preview (dry run) — shows for
   each entry the rewrites and drops that =preen= would apply, and flags
   entries with fewer than =org-reading-list-tag-min= tags (default 1) or

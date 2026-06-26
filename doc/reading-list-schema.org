@@ -153,12 +153,12 @@ source of truth for subjects.  The Org headline tags are a projection of
 =:SUBJECTS:= through the file's =#+TAGS:= vocabulary and
 =org-reading-list-tag-rewrites=: only tokens that survive the rewrite map
 and appear in (or are added to) the vocabulary become tags.
-=M-x org-reading-list-fetch-subjects= populates =:SUBJECTS:= from
-upstream: it unions the normalized subjects returned by Open Library, the
-LC Catalog, MILibrary (when loaded), and any other registered source for
-the entry's identifiers, then stores them in =:SUBJECTS:=.  With a prefix
-argument it does this for every book entry in the buffer.  Capture always
-writes =:SUBJECTS:= and projects it to tags on filing.
+=M-x org-reading-list-enrich= populates =:SUBJECTS:= from upstream: it
+unions the normalized subjects returned by Open Library, the LC Catalog,
+MILibrary (when loaded), and any other registered source for the entry's
+identifiers, then stores them in =:SUBJECTS:=.  With a prefix argument it
+does this for every book entry in the buffer.  Capture always writes
+=:SUBJECTS:= and projects it to tags on filing.
 
 The file's own =#+TAGS:= line is the vocabulary.  =org-reading-list-tag-rewrites=
 (a file-local alist, marked =safe-local-variable=) maps raw or variant

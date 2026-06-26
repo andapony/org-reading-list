@@ -1430,40 +1430,6 @@ BODY may reference `file', the temp file's path."
 
 
 
-(ert-deftest org-reading-list-test-fetch-subjects-projects-tags ()
-  ;; fetch-subjects writes :SUBJECTS: AND re-derives the heading tags
-  ;; through the controlled vocabulary.
-  (with-temp-buffer
-    (insert "#+TAGS: gold_rush\n"
-            "* TOREAD X\n:PROPERTIES:\n:ISBN: 0375505415\n:END:\n")
-    (org-mode)
-    (org-set-regexps-and-options)
-    (goto-char (point-min))
-    (re-search-forward "^\\* TOREAD X")
-    (let ((org-reading-list-tag-rewrites
-           '(("gold_discoveries" . "gold_rush") ("history" . nil)))
-          (org-reading-list-subject-functions
-           (list (lambda () '("gold_discoveries" "history")))))
-      (org-reading-list-fetch-subjects)
-      (should (equal (org-entry-get nil "SUBJECTS") "gold_discoveries; history"))
-      (should (equal (org-get-tags nil t) '("gold_rush"))))))
-
-(ert-deftest org-reading-list-test-fetch-subjects-reports-progress ()
-  ;; The whole-file pass emits a per-entry progress message.
-  (with-temp-buffer
-    (org-mode)
-    (insert "* TOREAD A\n:PROPERTIES:\n:BTYPE: book\n:ISBN: 1\n:END:\n"
-            "* TOREAD B\n:PROPERTIES:\n:BTYPE: book\n:ISBN: 2\n:END:\n")
-    (let ((org-reading-list-subject-functions (list (lambda () '("x"))))
-          (msgs '()))
-      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
-                ((symbol-function 'message)
-                 (lambda (fmt &rest args)
-                   (push (ignore-errors (apply #'format fmt args)) msgs)
-                   nil)))
-        (org-reading-list-fetch-subjects t))
-      (should (seq-find (lambda (m) (and m (string-match-p "1/2" m))) msgs))
-      (should (seq-find (lambda (m) (and m (string-match-p "2/2" m))) msgs)))))
 
 (ert-deftest org-reading-list-test-entry-label ()
   "Label is \"Surname, Title (Year)\", degrading on missing parts."

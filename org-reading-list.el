@@ -49,8 +49,6 @@
 ;;   `org-reading-list-enrich-loc'   Fill missing LCCN/OCLC/LCC/DDC on
 ;;                                   the entry at point from the Library
 ;;                                   of Congress catalog (SRU/MARCXML).
-;;   `org-reading-list-loc-tags'     Harvest LoC 650/651 subject
-;;                                   headings as Org tags.
 ;;   `org-reading-list-set-holdings' Record where a book can be
 ;;                                   obtained (own collection,
 ;;                                   libraries), with completion.
@@ -485,7 +483,7 @@ property.  Modify nothing."
             (insert (format "%s%s\n" (plist-get e :heading)
                             (if (plist-get e :thin) "   [THIN]" ""))
                     (if (plist-get e :no-subjects)
-                        "  (no :SUBJECTS: — run org-reading-list-fetch-subjects)\n"
+                        "  (no :SUBJECTS: — run org-reading-list-enrich)\n"
                       (concat
                        (format "  %s -> %s\n"
                                (or (plist-get e :current) "(none)")
@@ -534,7 +532,7 @@ normalized tokens, or nil when nothing is found."
   (list #'org-reading-list--subjects-from-upstream)
   "Functions returning normalized subjects for the entry at point.
 Each is called with point on a reading-list entry and returns a list of
-normalized subject tokens, or nil.  `org-reading-list-fetch-subjects'
+normalized subject tokens, or nil.  `org-reading-list-enrich'
 runs them all and unions the results into :SUBJECTS:.  Extension modules
 \(such as org-reading-list-mi) add their own source to this list.")
 
@@ -566,39 +564,6 @@ subjects (the property is then left unchanged)."
       (org-entry-put nil "SUBJECTS" (string-join canonical "; "))
       canonical)))
 
-;;;###autoload
-(defun org-reading-list-fetch-subjects (&optional all)
-  "Populate the :SUBJECTS: of the entry at point and re-derive its tags.
-Union the normalized subjects returned by every function in
-`org-reading-list-subject-functions' (Open Library and the LC Catalog by
-the entry's identifiers, plus any registered source such as MILibrary),
-store them in :SUBJECTS:, and re-derive the heading tags from them
-through the controlled vocabulary, as capture does.  With a prefix
-argument ALL, do this for every book entry (non-empty :BTYPE:) in the
-buffer, after confirmation, reporting per-entry progress in the echo
-area (each entry makes synchronous network requests).  Entries from
-which no source returns subjects are left unchanged."
-  (interactive "P")
-  (if all
-      (let ((n (length (org-map-entries #'ignore "BTYPE={.}")))
-            (i 0)
-            (updated 0))
-        (when (yes-or-no-p (format "Fetch subjects for %d entries? " n))
-          (org-map-entries
-           (lambda ()
-             (setq i (1+ i))
-             (message "Fetching subjects %d/%d: %s..."
-                      i n (org-get-heading t t t t))
-             (when (org-reading-list--fetch-entry-subjects)
-               (org-reading-list--reproject-entry-tags)
-               (setq updated (1+ updated))))
-           "BTYPE={.}")
-          (message "Fetched subjects: updated %d of %d entries" updated n)))
-    (if (org-reading-list--fetch-entry-subjects)
-        (progn
-          (org-reading-list--reproject-entry-tags)
-          (message "SUBJECTS: %s" (org-entry-get nil "SUBJECTS")))
-      (message "No subjects found for this entry"))))
 
 
 (defun org-reading-list--preen-entry (vocab rewrites)
@@ -770,7 +735,7 @@ See `org-reading-list-lint-tags' for a non-destructive preview."
      (t
       (let ((result (org-reading-list--preen-entry vocab rewrites)))
         (if (eq result 'no-subjects)
-            (message "This entry has no :SUBJECTS: — run org-reading-list-fetch-subjects")
+            (message "This entry has no :SUBJECTS: — run org-reading-list-enrich")
           (message "Preened: %s"
                    (or (string-join (org-get-tags nil t) " ") "none"))))))))
 
@@ -1512,19 +1477,6 @@ pre-publication CIP records once LoC completes them."
                          (string-join changed ", "))
                "nothing new to add"))))
 
-;;;###autoload
-(defun org-reading-list-loc-tags (&optional replace)
-  "Add LoC subject headings to the Org entry at point as tags.
-Queries like `org-reading-list-enrich-loc' and harvests 650/651
-fields, each heading and subdivision becoming a normalized tag.
-Existing tags are merged with the new ones; with a prefix argument
-REPLACE, existing tags are replaced.  Prune to your tag vocabulary
-afterward — LCSH is wordier than a working set of tags wants."
-  (interactive "P")
-  (let* ((recs (org-reading-list--loc-entry-records))
-         (added (org-reading-list--loc-apply-tags recs replace)))
-    (message "LoC tags: %s"
-             (if added (string-join added " ") "none found"))))
 
 ;;;; Filing entries under a headline
 
