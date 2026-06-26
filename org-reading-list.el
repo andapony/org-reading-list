@@ -1655,6 +1655,40 @@ never modified.  Intended as the completion source for chronicle's
                      raw))))))
       (org-reading-list--disambiguate-labels (nreverse raw)))))
 
+(defun org-reading-list--supersede-candidates (&optional self-pos)
+  "Return supersede candidates from the current buffer.
+Result is a plist (:candidates ALIST :default KEY): ALIST is
+\(LABEL . CITEKEY) for every keyed heading except the one beginning at
+SELF-POS, disambiguated and in buffer order; :default is the CITEKEY of
+the candidate with the latest :ADDED: timestamp (ties broken by later
+buffer position), or nil when there are no candidates."
+  (let (cands)
+    (org-map-entries
+     (lambda ()
+       (let ((key (org-entry-get nil "CUSTOM_ID")))
+         (when (and key (not (eql (point) self-pos)))
+           (push (list :key key
+                       :label (org-reading-list--entry-label
+                               (org-entry-get nil "AUTHOR")
+                               (org-entry-get nil "TITLE")
+                               (org-entry-get nil "DATE"))
+                       :added (org-entry-get nil "ADDED"))
+                 cands)))))
+    (setq cands (nreverse cands))
+    (let ((pairs (org-reading-list--disambiguate-labels
+                  (mapcar (lambda (c)
+                            (cons (plist-get c :label) (plist-get c :key)))
+                          cands)))
+          (best nil) (best-t -1))
+      (dolist (c cands)
+        (let ((tt (and (plist-get c :added)
+                       (ignore-errors
+                         (org-time-string-to-seconds (plist-get c :added))))))
+          (when (and tt (>= tt best-t))
+            (setq best-t tt best (plist-get c :key)))))
+      (list :candidates pairs :default best))))
+
+
 (defun org-reading-list--buffer-citekeys ()
   "Return the list of :CUSTOM_ID: values present in the current buffer."
   (let (keys)

@@ -1596,5 +1596,26 @@ BODY may reference `file', the temp file's path."
 (ert-deftest org-reading-list-test-dispatch-prefix-defined ()
   (should (commandp 'org-reading-list-dispatch)))
 
+(ert-deftest org-reading-list-test-supersede-candidates ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n"
+            "** A\n:PROPERTIES:\n:CUSTOM_ID: a1\n:TITLE: A\n:AUTHOR: X, Y\n"
+            ":DATE: 1900\n:ADDED: [2026-06-20 Sat]\n:END:\n"
+            "** B\n:PROPERTIES:\n:CUSTOM_ID: b1\n:TITLE: B\n:AUTHOR: P, Q\n"
+            ":DATE: 1910\n:ADDED: [2026-06-21 Sun]\n:END:\n"
+            "** C\n:PROPERTIES:\n:CUSTOM_ID: c1\n:TITLE: C\n:AUTHOR: R, S\n"
+            ":DATE: 1920\n:ADDED: [2026-06-25 Thu]\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "^\\*\\* B")
+    (let* ((self (line-beginning-position))
+           (res (org-reading-list--supersede-candidates self))
+           (cands (plist-get res :candidates)))
+      ;; The heading at point (b1) is excluded; a1 and c1 are offered in order.
+      (should (equal (mapcar #'cdr cands) '("a1" "c1")))
+      ;; c1 has the latest :ADDED:, so it is the default.
+      (should (equal (plist-get res :default) "c1")))))
+
+
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here
