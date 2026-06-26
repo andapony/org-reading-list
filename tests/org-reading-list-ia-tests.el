@@ -173,5 +173,49 @@
              ":FOUND: IA edition discovery; earlier edition of \\[\\[#soule1966\\]\\]"
              entry))))
 
+(ert-deftest org-reading-list-ia-test-add-edition ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n"
+            "** TOREAD The Annals of San Francisco :sf_history:\n"
+            ":PROPERTIES:\n:CUSTOM_ID: soule1966\n:BTYPE: book\n"
+            ":AUTHOR: Soulé, Frank\n:TITLE: The Annals of San Francisco\n"
+            ":DATE: 1966\n:SUBJECTS: california; history\n:END:\n"
+            "Original note.\n")
+    (let ((org-reading-list-headline "Books")
+          (cand '(:identifier "annals1855" :year "1855" :publisher "Appleton"
+                  :imagecount 560 :olid "OL1M")))
+      (goto-char (point-min))
+      (re-search-forward "TOREAD The Annals")
+      (org-reading-list-ia--add-edition cand)
+      (let ((text (buffer-string)))
+        ;; New entry filed with edition fields.
+        (should (string-match-p ":IA: annals1855" text))
+        (should (string-match-p ":DATE: 1855" text))
+        (should (string-match-p ":CUSTOM_ID: soule1855" text))
+        ;; Back-link added under the original; original props intact.
+        (should (string-match-p "Earlier edition: \\[\\[#soule1855\\]\\]" text))
+        (should (string-match-p ":CUSTOM_ID: soule1966" text))
+        (should (string-match-p "Original note\\." text))))))
+
+(ert-deftest org-reading-list-ia-test-add-edition-no-citekey ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n"
+            "** TOREAD Some Book\n"
+            ":PROPERTIES:\n:BTYPE: book\n"
+            ":AUTHOR: Smith, John\n:TITLE: Some Book\n"
+            ":END:\n"
+            "No citekey here.\n")
+    (let ((org-reading-list-headline "Books")
+          (cand '(:identifier "somebook1900" :year "1900" :publisher "Press"
+                  :imagecount 200 :olid nil)))
+      (goto-char (point-min))
+      (re-search-forward "TOREAD Some Book")
+      (should-error (org-reading-list-ia--add-edition cand) :type 'user-error)
+      ;; Buffer unmodified: no new entry, no back-link.
+      (should-not (string-match-p "Earlier edition" (buffer-string)))
+      (should-not (string-match-p "somebook1900" (buffer-string))))))
+
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here

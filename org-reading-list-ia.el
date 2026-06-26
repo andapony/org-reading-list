@@ -249,5 +249,42 @@ for collision suffixing."
      (mapconcat (lambda (kv) (format ":%s: %s\n" (car kv) (cdr kv))) props "")
      ":END:\n")))
 
+(defun org-reading-list-ia--add-backlink (origpos newkey)
+  "Insert an \"Earlier edition\" link to NEWKEY under the entry at ORIGPOS."
+  (save-excursion
+    (goto-char origpos)
+    (org-back-to-heading t)
+    (org-end-of-meta-data t)
+    (unless (bolp) (insert "\n"))
+    (insert (format "Earlier edition: [[#%s]]\n" newkey))))
+
+(defun org-reading-list-ia--add-edition (cand)
+  "Add edition CAND as a new entry, back-linked from the entry at point.
+Work-level fields are read from the entry at point; the new entry is
+filed under `org-reading-list-headline'; an \"Earlier edition\" link is
+added to the original.  Return the new entry's buffer position."
+  (let* ((origpos (save-excursion (org-back-to-heading t) (point)))
+         (src-citekey (org-entry-get nil "CUSTOM_ID")))
+    (when (or (null src-citekey) (string-empty-p src-citekey))
+      (user-error
+       "Entry needs a :CUSTOM_ID: before adding an edition %s"
+       "(run org-reading-list-ensure-citekey)"))
+    (let* ((source (list :author (org-entry-get nil "AUTHOR")
+                         :title (org-entry-get nil "TITLE")
+                         :subjects (org-entry-get nil "SUBJECTS")
+                         :tags (string-join (org-get-tags nil t) ":")
+                         :citekey src-citekey))
+           (today (format-time-string "[%Y-%m-%d %a]"))
+           (entry (org-reading-list-ia--new-entry
+                   cand source today (org-reading-list--buffer-citekeys)))
+           (newkey (and (string-match ":CUSTOM_ID: \\(\\S-+\\)" entry)
+                        (match-string 1 entry))))
+      ;; Back-link first (does not shift ORIGPOS), then file the new entry.
+      (org-reading-list-ia--add-backlink origpos newkey)
+      (save-restriction
+        (widen)
+        (org-reading-list--insert-under-headline
+         entry org-reading-list-headline)))))
+
 (provide 'org-reading-list-ia)
 ;;; org-reading-list-ia.el ends here
