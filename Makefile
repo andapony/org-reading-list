@@ -5,7 +5,7 @@ BATCH  = $(EMACS) -Q --batch -L .
 # (missing lexical-binding cookies, warnings) in any of them, not just
 # the main file.  Generated artifacts (*-pkg.el, *-autoloads.el) are not
 # listed here; they are produced by the package manager at install time.
-EL = org-reading-list.el org-reading-list-mi.el $(wildcard tests/*.el)
+EL = org-reading-list.el org-reading-list-mi.el org-reading-list-ia.el $(wildcard tests/*.el)
 
 .PHONY: all compile checkdoc test package-lint clean
 
@@ -18,10 +18,12 @@ compile:
 checkdoc:
 	$(BATCH) --eval "(checkdoc-file \"org-reading-list.el\")"
 	$(BATCH) --eval "(checkdoc-file \"org-reading-list-mi.el\")"
+	$(BATCH) --eval "(checkdoc-file \"org-reading-list-ia.el\")"
 
 test:
 	$(BATCH) -l tests/org-reading-list-tests.el \
 	         -l tests/org-reading-list-mi-tests.el \
+	         -l tests/org-reading-list-ia-tests.el \
 	         -f ert-run-tests-batch-and-exit
 
 # Installs package-lint from MELPA on first run (needs network).
