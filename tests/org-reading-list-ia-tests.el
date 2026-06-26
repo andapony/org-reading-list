@@ -52,6 +52,21 @@
       (should (equal (plist-get (nth 1 rows) :creator)
                      "Soulé, Frank; Gihon, John")))))
 
+(ert-deftest org-reading-list-ia-test-match-guard ()
+  (let ((good '(:creator "Soulé, Frank" :title "The Annals of San Francisco"))
+        (wrong-author '(:creator "Justice, Donald"
+                        :title "The Annals of San Francisco"))
+        (thin '(:creator "Soulé, Frank" :title "Annals")))
+    (should (org-reading-list-ia--candidate-match-p
+             good "Soulé, Frank" "The Annals of San Francisco"))
+    ;; Same title, wrong author — rejected (the Donald-Justice lesson).
+    (should-not (org-reading-list-ia--candidate-match-p
+                 wrong-author "Soulé, Frank" "The Annals of San Francisco"))
+    ;; Too few overlapping title tokens — rejected.
+    (should-not (org-reading-list-ia--candidate-match-p
+                 thin "Soulé, Frank" "The Annals of San Francisco"))))
+
+
 
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here

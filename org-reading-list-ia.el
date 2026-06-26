@@ -109,6 +109,25 @@ Each plist has :identifier :title :creator :year :publisher and
              :collection (org-reading-list-ia--doc-field doc 'collection)))
      docs)))
 
+(defun org-reading-list-ia--candidate-match-p (cand author title)
+  "Non-nil if CAND plausibly matches AUTHOR and TITLE.
+The author surname slug must appear in CAND's :creator, and at least
+half of TITLE's significant tokens must appear in CAND's :title.  This
+guards against same-title, wrong-author hits."
+  (let* ((surname (org-reading-list-ia--surname author))
+         (creator (org-reading-list--slug
+                   (ucs-normalize-NFD-string
+                    (downcase (or (plist-get cand :creator) "")))))
+         (want (org-reading-list-ia--title-tokens title))
+         (have (org-reading-list-ia--title-tokens (plist-get cand :title))))
+    (and surname
+         (string-match-p (regexp-quote surname) creator)
+         want
+         (>= (length (seq-intersection want have #'equal))
+             (max 1 (/ (1+ (length want)) 2)))
+         t)))
+
+
 
 
 
