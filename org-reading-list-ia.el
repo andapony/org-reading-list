@@ -387,7 +387,123 @@ CURRENT-YEAR marks the listed edition; TRUNCATED notes a capped search."
         (org-reading-list-ia--show-candidates
          rows current origin (plist-get res :truncated))))))
 
-(declare-function org-reading-list-ia--report "org-reading-list-ia")
+(defun org-reading-list-ia--probe (author title)
+  "Probe IA for an earlier scanned edition matching AUTHOR and TITLE.
+Return the earliest matching candidate plist, or nil.  No per-candidate
+metadata is fetched."
+  (let* ((all (org-reading-list-ia--search
+               author title (1+ org-reading-list-ia-max-candidates)))
+         (matches (seq-filter
+                   (lambda (c)
+                     (org-reading-list-ia--candidate-match-p c author title))
+                   all)))
+    (car (sort matches
+               (lambda (a b)
+                 (< (or (org-reading-list-ia--year-int (plist-get a :year))
+                        most-positive-fixnum)
+                    (or (org-reading-list-ia--year-int (plist-get b :year))
+                        most-positive-fixnum)))))))
+
+(defun org-reading-list-ia--scan-headings ()
+  "Return entry plists for every keyed heading in the current buffer.
+Each plist has :pos :citekey :title :date and :author."
+  (let (entries)
+    (org-map-entries
+     (lambda ()
+       (let ((key (org-entry-get nil "CUSTOM_ID")))
+         (when key
+           (push (list :pos (point)
+                       :citekey key
+                       :title (org-entry-get nil "TITLE")
+                       :date (org-entry-get nil "DATE")
+                       :author (org-entry-get nil "AUTHOR"))
+                 entries)))))
+    (nreverse entries)))
+
+(defun org-reading-list-ia--report-rows (entries)
+  "Probe each of ENTRIES for an earlier scanned edition.
+Return a plist (:rows ROWS :checked N :errors KEYS).  Each row is the
+ENTRY plist with :earliest (the probe hit) added; only entries with a
+hit are included.  Probe errors are collected in :errors."
+  (let ((rows nil) (errors nil) (checked 0))
+    (dolist (e entries)
+      (let ((author (plist-get e :author))
+            (title (plist-get e :title)))
+        (when (and author title)
+          (setq checked (1+ checked))
+          (condition-case nil
+              (let ((hit (org-reading-list-ia--probe author title)))
+                (when hit
+                  (push (append e (list :earliest hit)) rows)))
+            (error (push (plist-get e :citekey) errors))))))
+    (list :rows (nreverse rows)
+          :checked checked
+          :errors (nreverse errors))))
+
+(defun org-reading-list-ia--report-drill ()
+  "Jump to the entry on the current report line and offer its editions."
+  (interactive)
+  (let* ((id (tabulated-list-get-id))
+         (row (when id (nth (string-to-number id) org-reading-list-ia--rows)))
+         (origin (and row (plist-get row :origin))))
+    (when origin
+      (pop-to-buffer (marker-buffer origin))
+      (goto-char origin)
+      (org-reading-list-ia--find-at-point))))
+
+(define-derived-mode org-reading-list-ia-report-mode tabulated-list-mode
+  "IA-Report"
+  "Major mode for the Internet Archive discovery report."
+  (setq tabulated-list-format
+        [("Cite key" 16 nil) ("Title" 34 nil) ("Listed" 7 nil)
+         ("Earliest scan" 14 nil) ("IA id" 22 nil)])
+  (tabulated-list-init-header))
+
+(defun org-reading-list-ia--report ()
+  "Report which reading-list entries have an earlier scanned edition."
+  (let* ((src (current-buffer))
+         (entries (org-reading-list-ia--scan-headings))
+         (res (org-reading-list-ia--report-rows entries))
+         (rows (mapcar
+                (lambda (r)
+                  (append r (list :origin
+                                  (with-current-buffer src
+                                    (copy-marker (plist-get r :pos))))))
+                (plist-get res :rows)))
+         (buf (get-buffer-create "*IA discovery report*")))
+    (with-current-buffer buf
+      (org-reading-list-ia-report-mode)
+      (setq org-reading-list-ia--rows rows
+            tabulated-list-entries
+            (let ((i 0))
+              (mapcar
+               (lambda (r)
+                 (prog1
+                     (list (number-to-string i)
+                           (vector (or (plist-get r :citekey) "")
+                                   (or (plist-get r :title) "")
+                                   (or (plist-get r :date) "?")
+                                   (or (plist-get (plist-get r :earliest) :year)
+                                       "?")
+                                   (or (plist-get (plist-get r :earliest)
+                                                  :identifier)
+                                       "")))
+                   (setq i (1+ i))))
+               rows)))
+      (tabulated-list-print)
+      (local-set-key (kbd "RET") #'org-reading-list-ia--report-drill))
+    (message "%d of %d entries have an earlier scanned edition%s"
+             (length rows) (plist-get res :checked)
+             (if (plist-get res :errors)
+                 (format "; %d could not be checked"
+                         (length (plist-get res :errors)))
+               ""))
+    (pop-to-buffer buf)))
+
+
+
+
+
 
 ;;;###autoload
 (defun org-reading-list-ia-find-editions (&optional all)
