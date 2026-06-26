@@ -1588,7 +1588,5 @@ BODY may reference `file', the temp file's path."
 (ert-deftest org-reading-list-test-dispatch-prefix-defined ()
   (should (commandp 'org-reading-list-dispatch)))
 
-
-
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here

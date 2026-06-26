@@ -492,7 +492,6 @@ and unresolved tokens.  Return nil; modify no Org buffer."
     (display-buffer buf)
     nil))
 
-
 (defcustom org-reading-list-trust-openlibrary-subjects nil
   "Whether to include Open Library subjects when enriching :SUBJECTS:.
 Open Library subject headings are crowd-sourced and sometimes wrong (an
@@ -1438,20 +1437,6 @@ unchanged)."
               (push (car kv) changed)))))
       (nreverse changed))))
 
-
-(defun org-reading-list--loc-apply-tags (recs &optional replace)
-  "Add subject tags from MARC RECS to the entry at point.
-Existing tags are kept and merged unless REPLACE is non-nil.  At most
-`org-reading-list-max-tags' new tags are taken.  Return the new tags."
-  (let* ((new (seq-take (org-reading-list--marc-subject-tags recs)
-                        org-reading-list-max-tags))
-         (tags (if replace
-                   new
-                 (delete-dups (append (org-get-tags nil t) new)))))
-    (when tags
-      (org-set-tags tags))
-    new))
-
 ;;;; Library of Congress: commands
 
 ;;;###autoload
@@ -1770,9 +1755,6 @@ Signal a `user-error' when no such entry exists."
    ["Record"
     ("h" "Set holdings" org-reading-list-set-holdings)
     ("k" "Backfill citekeys" org-reading-list-ensure-citekeys)]])
-
-
-
 
 
 ;;;###autoload

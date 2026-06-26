@@ -572,12 +572,5 @@
   ;; The MI enrich source is registered on the orchestrator hook.
   (should (memq #'org-reading-list-mi--enrich org-reading-list-enrich-functions)))
 
-
-
-
-
-
-
-
 (provide 'org-reading-list-mi-tests)
 ;;; org-reading-list-mi-tests.el ends here
