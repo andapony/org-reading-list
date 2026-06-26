@@ -286,5 +286,119 @@ added to the original.  Return the new entry's buffer position."
         (org-reading-list--insert-under-headline
          entry org-reading-list-headline)))))
 
+(defun org-reading-list-ia--format-row (row current-year)
+  "Return a tabulated-list cell vector for edition ROW.
+CURRENT-YEAR is the listed entry's year; the matching row is marked
+\"← current\"."
+  (let* ((yi (plist-get row :year-int))
+         (year (cond ((null yi) (or (plist-get row :year) "?"))
+                     ((and current-year (= yi current-year))
+                      (format "%d ← current" yi))
+                     (t (number-to-string yi))))
+         (pages (let ((n (plist-get row :imagecount)))
+                  (if (and n (> n 0)) (number-to-string n) "?")))
+         (ppi (let ((p (plist-get row :ppi)))
+                (if (and p (> p 0)) (number-to-string p) "?"))))
+    (vector year
+            (or (plist-get row :title) "")
+            (or (plist-get row :identifier) "")
+            (if (plist-get row :google) "Google" "Library")
+            (if (plist-get row :open) "Open" "Lending")
+            ppi
+            pages
+            (or (plist-get row :olid) "—"))))
+
+(defun org-reading-list-ia--confirm (row)
+  "Show a one-line preview of ROW and ask for confirmation."
+  (yes-or-no-p
+   (format "Add %s (%s) as a new entry [IA:%s]? "
+           (or (plist-get row :title) "edition")
+           (or (plist-get row :year) "?")
+           (plist-get row :identifier))))
+
+(defun org-reading-list-ia--act-on (row)
+  "On confirmation, add ROW as a new edition entry; else return nil."
+  (when (org-reading-list-ia--confirm row)
+    (org-reading-list-ia--add-edition row)))
+
+(defvar-local org-reading-list-ia--rows nil
+  "Editions backing the current candidate buffer.")
+
+(defvar-local org-reading-list-ia--origin nil
+  "Marker at the entry the candidate buffer was launched from.")
+
+(defun org-reading-list-ia--pick ()
+  "Add the edition on the current candidate-table line."
+  (interactive)
+  (let ((row (nth (1- (line-number-at-pos)) org-reading-list-ia--rows))
+        (origin org-reading-list-ia--origin))
+    (when (and row origin)
+      (with-current-buffer (marker-buffer origin)
+        (save-excursion
+          (goto-char origin)
+          (org-reading-list-ia--act-on row)))
+      (message "Added edition %s" (plist-get row :identifier)))))
+
+(define-derived-mode org-reading-list-ia-candidates-mode tabulated-list-mode
+  "IA-Editions"
+  "Major mode for the Internet Archive candidate table."
+  (setq tabulated-list-format
+        [("Year" 14 nil) ("Title" 30 nil) ("IA id" 22 nil)
+         ("Source" 8 nil) ("Open?" 8 nil) ("ppi" 5 nil)
+         ("Leaves" 7 nil) ("OLID" 12 nil)])
+  (tabulated-list-init-header))
+
+(defun org-reading-list-ia--show-candidates (rows current-year origin truncated)
+  "Display ROWS in a candidate buffer launched from ORIGIN.
+CURRENT-YEAR marks the listed edition; TRUNCATED notes a capped search."
+  (let ((buf (get-buffer-create "*IA editions*")))
+    (with-current-buffer buf
+      (org-reading-list-ia-candidates-mode)
+      (setq org-reading-list-ia--rows rows
+            org-reading-list-ia--origin origin
+            tabulated-list-entries
+            (let ((i 0))
+              (mapcar (lambda (r)
+                        (prog1 (list (number-to-string i)
+                                     (org-reading-list-ia--format-row
+                                      r current-year))
+                          (setq i (1+ i))))
+                      rows)))
+      (tabulated-list-print)
+      (when truncated
+        (message "Results truncated at %d candidates"
+                 org-reading-list-ia-max-candidates))
+      (local-set-key (kbd "RET") #'org-reading-list-ia--pick))
+    (pop-to-buffer buf)))
+
+(defun org-reading-list-ia--find-at-point ()
+  "Find and offer scanned editions for the reading-list entry at point."
+  (let* ((author (org-entry-get nil "AUTHOR"))
+         (title (org-entry-get nil "TITLE"))
+         (current (org-reading-list-ia--year-int (org-entry-get nil "DATE")))
+         (origin (save-excursion (org-back-to-heading t) (point-marker))))
+    (unless (and author title)
+      (user-error "Entry needs :AUTHOR: and :TITLE: to search IA"))
+    (let* ((res (org-reading-list-ia--editions author title))
+           (rows (plist-get res :rows)))
+      (if (null rows)
+          (message "No scanned editions found on the Internet Archive")
+        (org-reading-list-ia--show-candidates
+         rows current origin (plist-get res :truncated))))))
+
+(declare-function org-reading-list-ia--report "org-reading-list-ia")
+
+;;;###autoload
+(defun org-reading-list-ia-find-editions (&optional all)
+  "Find scanned earlier editions of a reading-list book on the Internet Archive.
+Without a prefix, operate on the entry at point: show a ranked
+candidate table and add the chosen edition as a new entry.  With a
+prefix argument ALL, produce a read-only discovery report across the
+whole buffer, with drill-in to the per-entry table."
+  (interactive "P")
+  (if all
+      (org-reading-list-ia--report)
+    (org-reading-list-ia--find-at-point)))
+
 (provide 'org-reading-list-ia)
 ;;; org-reading-list-ia.el ends here

@@ -217,5 +217,47 @@
       (should-not (string-match-p "Earlier edition" (buffer-string)))
       (should-not (string-match-p "somebook1900" (buffer-string))))))
 
+(ert-deftest org-reading-list-ia-test-format-row ()
+  (let ((row '(:identifier "annals00souggoog" :year "1855" :year-int 1855
+               :title "The Annals of San Francisco" :publisher "Appleton"
+               :ppi 300 :imagecount 560 :open nil :google t :olid "OL1M")))
+    (let ((v (org-reading-list-ia--format-row row 1855)))
+      (should (equal (aref v 0) "1855 ← current"))
+      (should (equal (aref v 2) "annals00souggoog"))
+      (should (equal (aref v 3) "Google"))
+      (should (equal (aref v 4) "Lending"))
+      (should (equal (aref v 5) "300"))
+      (should (equal (aref v 7) "OL1M"))))
+  ;; A non-current, open, library scan with no OLID.
+  (let ((row '(:identifier "annals1855" :year "1855" :year-int 1855
+               :title "The Annals" :publisher "Appleton"
+               :ppi 0 :imagecount 0 :open t :google nil :olid nil)))
+    (let ((v (org-reading-list-ia--format-row row 1966)))
+      (should (equal (aref v 0) "1855"))
+      (should (equal (aref v 3) "Library"))
+      (should (equal (aref v 4) "Open"))
+      (should (equal (aref v 7) "—")))))
+
+(ert-deftest org-reading-list-ia-test-act-on-confirm ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD The Annals :sf_history:\n:PROPERTIES:\n"
+            ":CUSTOM_ID: soule1966\n:AUTHOR: Soulé, Frank\n"
+            ":TITLE: The Annals\n:DATE: 1966\n:END:\n")
+    (let ((org-reading-list-headline "Books")
+          (row '(:identifier "annals1855" :year "1855" :imagecount 560)))
+      (goto-char (point-min))
+      (re-search-forward "TOREAD The Annals")
+      ;; Declined → no write.
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) nil)))
+        (should (null (org-reading-list-ia--act-on row))))
+      (should-not (string-match-p ":IA:" (buffer-string)))
+      ;; Confirmed → entry filed.
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+        (org-reading-list-ia--act-on row))
+      (should (string-match-p ":IA: annals1855" (buffer-string))))))
+
+
+
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here
