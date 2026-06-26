@@ -1616,6 +1616,33 @@ BODY may reference `file', the temp file's path."
       ;; c1 has the latest :ADDED:, so it is the default.
       (should (equal (plist-get res :default) "c1")))))
 
+(ert-deftest org-reading-list-test-supersede-command ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n"
+            "** A\n:PROPERTIES:\n:CUSTOM_ID: a1\n:TITLE: A\n:AUTHOR: X, Y\n"
+            ":DATE: 1900\n:ADDED: [2026-06-20 Sat]\n:END:\n"
+            "** B\n:PROPERTIES:\n:CUSTOM_ID: b1\n:TITLE: B\n:AUTHOR: P, Q\n"
+            ":DATE: 1910\n:ADDED: [2026-06-21 Sun]\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "^\\*\\* B")
+    ;; Pick A as the preferred edition.
+    (cl-letf (((symbol-function 'completing-read)
+               (lambda (&rest _) "X, A (1900)")))
+      (org-reading-list-supersede))
+    (goto-char (point-min))
+    (re-search-forward "^\\*\\* B")
+    (should (equal (org-entry-get nil "SUPERSEDED_BY") "[[#a1]]"))
+    ;; Clearing removes the property.
+    (cl-letf (((symbol-function 'completing-read)
+               (lambda (&rest _) "(clear supersede)")))
+      (org-reading-list-supersede))
+    (goto-char (point-min))
+    (re-search-forward "^\\*\\* B")
+    (should (null (org-entry-get nil "SUPERSEDED_BY")))
+    (should (commandp 'org-reading-list-supersede))))
+
+
 
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here

@@ -1688,6 +1688,34 @@ buffer position), or nil when there are no candidates."
             (setq best-t tt best (plist-get c :key)))))
       (list :candidates pairs :default best))))
 
+;;;###autoload
+(defun org-reading-list-supersede ()
+  "Mark the reading-list heading at point as superseded by another edition.
+Prompt for the preferred edition (defaulting to the most recently added
+entry) and write a :SUPERSEDED_BY: cite-link to it on the heading at
+point.  Choosing \"(clear supersede)\" removes the property."
+  (interactive)
+  (save-restriction
+    (widen)
+    (let* ((self (save-excursion (org-back-to-heading t) (point)))
+           (res (org-reading-list--supersede-candidates self))
+           (cands (plist-get res :candidates))
+           (default-label (car (rassoc (plist-get res :default) cands)))
+           (clear "(clear supersede)")
+           (choice (completing-read
+                    "Superseded by: "
+                    (cons clear (mapcar #'car cands))
+                    nil t nil nil default-label)))
+      (cond
+       ((equal choice clear)
+        (org-entry-delete nil "SUPERSEDED_BY")
+        (message "Cleared :SUPERSEDED_BY:"))
+       ((assoc choice cands)
+        (let ((key (cdr (assoc choice cands))))
+          (org-entry-put nil "SUPERSEDED_BY" (format "[[#%s]]" key))
+          (message "Superseded by %s" key)))
+       (t (user-error "No such entry: %s" choice))))))
+
 
 (defun org-reading-list--buffer-citekeys ()
   "Return the list of :CUSTOM_ID: values present in the current buffer."
@@ -1801,7 +1829,8 @@ Signal a `user-error' when no such entry exists."
     ("p" "Download PDF" org-reading-list-download-pdf)]
    ["Record"
     ("h" "Set holdings" org-reading-list-set-holdings)
-    ("k" "Backfill citekeys" org-reading-list-ensure-citekeys)]])
+    ("k" "Backfill citekeys" org-reading-list-ensure-citekeys)
+    ("S" "Supersede heading" org-reading-list-supersede)]])
 
 
 ;;;###autoload
