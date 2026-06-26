@@ -4,6 +4,9 @@
 (require 'org-reading-list)
 (require 'org-reading-list-ia)
 
+(require 'cl-lib)
+
+
 (ert-deftest org-reading-list-ia-test-title-tokens ()
   (should (equal (org-reading-list-ia--title-tokens
                   "Reminiscences and Incidents of Early Days")
@@ -23,6 +26,32 @@
       (should (string-match-p "creator:(soule)" q))
       (should (string-match-p "title:(annals)" q))
       (should (string-match-p "mediatype:texts" q)))))
+
+(ert-deftest org-reading-list-ia-test-search-parses-docs ()
+  (cl-letf (((symbol-function 'org-reading-list--fetch-json)
+             (lambda (_url)
+               '((response
+                  . ((numFound . 2)
+                     (docs
+                      . (((identifier . "annals1855")
+                          (title . "The Annals of San Francisco")
+                          (creator . "Soulé, Frank")
+                          (year . "1855")
+                          (publisher . "Appleton")
+                          (collection . ("americana" "googlebooks")))
+                         ((identifier . "annals1966goog")
+                          (title . "The Annals of San Francisco")
+                          (creator . ("Soulé, Frank" "Gihon, John"))
+                          (year . "1966"))))))))))
+    (let ((rows (org-reading-list-ia--search "Soulé, Frank" "Annals" 10)))
+      (should (= (length rows) 2))
+      (should (equal (plist-get (nth 0 rows) :identifier) "annals1855"))
+      (should (equal (plist-get (nth 0 rows) :year) "1855"))
+      (should (equal (plist-get (nth 0 rows) :collection) "americana; googlebooks"))
+      ;; A list-valued creator is joined.
+      (should (equal (plist-get (nth 1 rows) :creator)
+                     "Soulé, Frank; Gihon, John")))))
+
 
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here

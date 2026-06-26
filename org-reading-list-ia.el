@@ -78,5 +78,39 @@ and restricts to scanned texts."
             "&rows=" (number-to-string rows)
             "&output=json")))
 
+(defun org-reading-list-ia--as-string (v)
+  "Coerce IA metadata value V to a string."
+  (cond ((stringp v) v)
+        ((numberp v) (number-to-string v))
+        ((null v) "")
+        ((listp v) (mapconcat #'org-reading-list-ia--as-string v "; "))
+        (t (format "%s" v))))
+
+(defun org-reading-list-ia--doc-field (doc key)
+  "Return DOC's KEY as a single string, or nil when absent.
+List-valued fields are joined with \"; \"."
+  (let ((cell (assq key doc)))
+    (when cell (org-reading-list-ia--as-string (cdr cell)))))
+
+(defun org-reading-list-ia--search (author title rows)
+  "Query IA for AUTHOR and TITLE; return up to ROWS candidate plists.
+Each plist has :identifier :title :creator :year :publisher and
+:collection.  Returns nil on any fetch failure."
+  (let* ((url (org-reading-list-ia--search-url author title rows))
+         (json (org-reading-list--fetch-json url))
+         (docs (cdr (assq 'docs (cdr (assq 'response json))))))
+    (mapcar
+     (lambda (doc)
+       (list :identifier (org-reading-list-ia--doc-field doc 'identifier)
+             :title (org-reading-list-ia--doc-field doc 'title)
+             :creator (org-reading-list-ia--doc-field doc 'creator)
+             :year (org-reading-list-ia--doc-field doc 'year)
+             :publisher (org-reading-list-ia--doc-field doc 'publisher)
+             :collection (org-reading-list-ia--doc-field doc 'collection)))
+     docs)))
+
+
+
+
 (provide 'org-reading-list-ia)
 ;;; org-reading-list-ia.el ends here
