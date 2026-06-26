@@ -91,7 +91,9 @@ template into the =use-package= block from [[*Installation][Installation]]:
 
 (use-package org-reading-list
   :ensure nil
-  :commands (org-reading-list-insert
+  :commands (org-reading-list-dispatch
+             org-reading-list-insert
+             org-reading-list-enrich
              org-reading-list-enrich-loc
              org-reading-list-set-holdings
              org-reading-list-download-pdf)
@@ -176,6 +178,32 @@ reading-list file:
 
 * Usage
 
+** Dispatch menu
+
+Bind =org-reading-list-dispatch= to a convenient key and use it as your
+main entry point:
+
+#+begin_src emacs-lisp
+(global-set-key (kbd "C-c r") #'org-reading-list-dispatch)
+#+end_src
+
+The menu is organised into five groups:
+
+- *Add* — =i= insert by ID (ISBN, OL edition id, or OL URL); =s= search
+  the MILibrary catalog (shown only when =org-reading-list-mi= is loaded)
+- *Enrich* — =e= enrich from all sources; =l= Library of Congress only;
+  =m= MILibrary only (shown only when =org-reading-list-mi= is loaded)
+- *Curate* — =t= review and apply tags
+- *Files* — =p= download PDF
+- *Record* — =h= set holdings; =k= backfill cite keys
+
+The =-b= *Whole buffer* toggle in the =Scope= row applies the selected
+command to every book entry in the buffer instead of only the entry at
+point.  When =-b= is active, tag curation (=t=) shows a buffer-wide
+preview of all changes and asks for confirmation before applying.
+
+** Individual commands
+
 - =M-x org-reading-list-insert=: prompts for an ISBN, OL edition id,
   or OL URL and files a fully populated entry under the
   =org-reading-list-headline= heading (default "Books", created if
@@ -194,6 +222,13 @@ reading-list file:
   from a title/author search, kept only when the author and year
   agree with Open Library's. Any LoC record consulted also seeds
   :ABSTRACT: from its MARC 520 summary, when it has one.
+- =M-x org-reading-list-enrich= on an entry: runs every available
+  enrichment source in one step — the Library of Congress (LCCN, OCLC,
+  LCC/DDC, :ABSTRACT:, :SUBJECTS:) and, when =org-reading-list-mi= is
+  loaded, MILibrary (holdings, call number).  Existing values win;
+  differing non-empty fields are refreshed only on confirmation.  With a
+  prefix argument, enriches every book entry in the buffer after a
+  single confirmation prompt.
 - =M-x org-reading-list-enrich-loc= on an entry: fills missing
   LCCN/OCLC/LCC/DDC and the :ABSTRACT: summary from the Library of
   Congress record (queried by ISBN, by LCCN for pre-ISBN books, or by
