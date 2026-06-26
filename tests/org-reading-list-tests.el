@@ -217,6 +217,25 @@
    (re-search-forward "^\\*\\* TOREAD A")
    (should (equal (org-get-tags nil t) '("gold_rush")))))
 
+(ert-deftest org-reading-list-test-preen-buffer-previews-and-confirms ()
+  (with-temp-buffer
+    (insert "#+TAGS: gold_rush\n"
+            "* TOREAD A\n:PROPERTIES:\n:BTYPE: book\n:SUBJECTS: gold_discoveries\n:END:\n")
+    (org-mode) (org-set-regexps-and-options)
+    (let ((org-reading-list-tag-rewrites '(("gold_discoveries" . "gold_rush"))))
+      ;; Decline: report shown, tags NOT applied.
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) nil)))
+        (org-reading-list-preen-tags t))
+      (goto-char (point-min)) (re-search-forward "^\\* TOREAD A")
+      (should-not (org-get-tags nil t))
+      (should (get-buffer "*org-reading-list-tags*"))
+      ;; Accept: tags applied.
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+        (org-reading-list-preen-tags t))
+      (goto-char (point-min)) (re-search-forward "^\\* TOREAD A")
+      (should (equal (org-get-tags nil t) '("gold_rush"))))))
+
+
 (ert-deftest org-reading-list-test-preen-infer-hook ()
   (org-reading-list-test--with-list
    (goto-char (point-min))

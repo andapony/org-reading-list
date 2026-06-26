@@ -372,8 +372,8 @@ to drop the raw tag.  Set per file via file-local variables or
 
 (defcustom org-reading-list-tag-min 1
   "Minimum vocabulary tags an entry should carry after preening.
-Entries below this are flagged by `org-reading-list-lint-tags' and, when
-`org-reading-list-tag-infer-function' is set, passed to it."
+Entries below this are flagged by `org-reading-list-preen-tags' (buffer-wide
+report) and, when `org-reading-list-tag-infer-function' is set, passed to it."
   :type 'natnum)
 
 (defcustom org-reading-list-tag-infer-function nil
@@ -464,16 +464,12 @@ list, or NEW unchanged."
   (let ((v (org-entry-get nil "SUBJECTS")))
     (and v (split-string v "[;[:space:]]+" t))))
 
-
-;;;###autoload
-(defun org-reading-list-lint-tags ()
-  "Report how `org-reading-list-preen-tags' would change tags in the buffer.
-List, per book entry, the rewrites and drops that would apply and flag
-entries left below `org-reading-list-tag-min' or without a :SUBJECTS:
-property.  Modify nothing."
-  (interactive)
-  (let ((data (org-reading-list--lint-collect))
-        (buf (get-buffer-create "*org-reading-list-tags*")))
+(defun org-reading-list--render-lint-report (data)
+  "Render tag-preen diagnostics DATA into *org-reading-list-tags* and show it.
+DATA is from `org-reading-list--lint-collect'.  Lists, per entry, the
+subjects-to-tags projection and flags THIN entries, missing :SUBJECTS:,
+and unresolved tokens.  Return nil; modify no Org buffer."
+  (let ((buf (get-buffer-create "*org-reading-list-tags*")))
     (with-current-buffer buf
       (special-mode)
       (let ((inhibit-read-only t))
@@ -493,7 +489,9 @@ property.  Modify nothing."
                                    (plist-get rec :dropped-unresolved))
                          ""))))))
         (goto-char (point-min))))
-    (display-buffer buf)))
+    (display-buffer buf)
+    nil))
+
 
 (defcustom org-reading-list-trust-openlibrary-subjects nil
   "Whether to include Open Library subjects when enriching :SUBJECTS:.
@@ -712,10 +710,11 @@ or the raw subjects when there is no vocabulary).  Return DATA."
   "Preen the tags of the Org entry at point to the controlled vocabulary.
 Re-derive the entry's Org tags from its :SUBJECTS: property via
 `org-reading-list-tag-rewrites' against the buffer's vocabulary (its
-#+TAGS:).  With a prefix argument ALL, preen every book entry (those
-with a non-empty :BTYPE:) in the buffer, after confirmation.  Entries
-without a :SUBJECTS: property are skipped and reported.
-See `org-reading-list-lint-tags' for a non-destructive preview."
+#+TAGS:).  On a single entry, apply directly.  With a prefix argument
+ALL, first show a buffer-wide report of the changes and diagnostics
+\(unresolved tokens, THIN and missing-:SUBJECTS: entries), then apply to
+every book entry only on confirmation; declining leaves an audit you can
+read.  Entries without :SUBJECTS: are skipped."
   (interactive "P")
   (let ((vocab (org-reading-list--tag-vocabulary))
         (rewrites org-reading-list-tag-rewrites))
@@ -723,15 +722,21 @@ See `org-reading-list-lint-tags' for a non-destructive preview."
      ((null vocab)
       (message "No tag vocabulary: set #+TAGS: or org-reading-list-tag-vocabulary"))
      (all
-      (let ((n (length (org-map-entries #'ignore "BTYPE={.}")))
-            (skipped 0))
-        (when (yes-or-no-p (format "Preen tags of %d entries? " n))
-          (org-map-entries
-           (lambda ()
-             (when (eq (org-reading-list--preen-entry vocab rewrites) 'no-subjects)
-               (setq skipped (1+ skipped))))
-           "BTYPE={.}")
-          (message "Preened %d, skipped %d (no :SUBJECTS:)" (- n skipped) skipped))))
+      (let* ((data (org-reading-list--lint-collect))
+             (actionable (seq-remove (lambda (e) (plist-get e :no-subjects)) data)))
+        (org-reading-list--render-lint-report data)
+        (if (null actionable)
+            (message "No entries with :SUBJECTS: to preen")
+          (when (yes-or-no-p (format "Apply tags to %d entr%s? "
+                                     (length actionable)
+                                     (if (= (length actionable) 1) "y" "ies")))
+            (let ((n (length data)) (skipped 0))
+              (org-map-entries
+               (lambda ()
+                 (when (eq (org-reading-list--preen-entry vocab rewrites) 'no-subjects)
+                   (setq skipped (1+ skipped))))
+               "BTYPE={.}")
+              (message "Preened %d, skipped %d (no :SUBJECTS:)" (- n skipped) skipped))))))
      (t
       (let ((result (org-reading-list--preen-entry vocab rewrites)))
         (if (eq result 'no-subjects)

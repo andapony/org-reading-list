@@ -64,8 +64,9 @@ Tasks:
    anything with no home in the vocabulary). Never target a tag outside the
    controlled vocabulary. Output the decisions as new map lines in the same
    "thread <= raw, raw, ..." / "DROP <= raw, ..." form, ready to merge.
-   (Tip: M-x org-reading-list-lint-tags lists each entry's unresolved tokens —
-   exactly the ones that still need a decision.)
+   (Tip: M-x org-reading-list-preen-tags with a prefix arg (or the dispatch
+   menu's whole-buffer toggle) previews each entry's unresolved tokens before
+   applying.)
 2. THIN-ENTRY INFERENCE. For any entry whose :SUBJECTS:, after the full map
    (current + your additions), yields fewer than 2 vocabulary threads, infer the
    2-4 threads the book is about from its :TITLE: and :ABSTRACT:. Output a table:

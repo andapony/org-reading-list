@@ -163,11 +163,11 @@ does this for every book entry in the buffer.  Capture always writes
 The file's own =#+TAGS:= line is the vocabulary.  =org-reading-list-tag-rewrites=
 (a file-local alist, marked =safe-local-variable=) maps raw or variant
 tags to their vocabulary equivalents, or to =nil= to drop them.
-=M-x org-reading-list-lint-tags= previews the rewrites and flags entries
-below the minimum tag count without modifying anything;
 =M-x org-reading-list-preen-tags= re-derives the entry's tags from its
-=:SUBJECTS:= property, applying the rewrite map (=C-u= for every entry in
-the buffer).  The human-readable grouped form of the rewrite map lives in
+=:SUBJECTS:= property, applying the rewrite map.  With =C-u=, it first
+shows a buffer-wide report of changes and diagnostics (unresolved tokens,
+THIN and missing-=:SUBJECTS:= entries) and applies only on confirmation;
+declining is a pure audit.  The human-readable grouped form of the rewrite map lives in
 a sidecar file alongside the reading list.
 
 - Cap at ~6 tags per entry; more hurts the headline and adds nothing.

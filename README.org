@@ -230,14 +230,12 @@ entirely.  Set it as a file-local variable or in =.dir-locals.el=:
 The variable is marked =safe-local-variable= so Emacs will not prompt
 when the rewrite map is set this way.
 
-- =M-x org-reading-list-lint-tags=: a preview (dry run) — shows for
-  each entry the rewrites and drops that =preen= would apply, and flags
-  entries with fewer than =org-reading-list-tag-min= tags (default 1) or
-  without a =:SUBJECTS:= property.  Nothing is modified.
 - =M-x org-reading-list-preen-tags=: re-derives the entry's Org tags from
   its =:SUBJECTS:= property by applying the rewrite map, then sets the
-  headline tags.  With =C-u=, preens every book entry in the buffer after
-  prompting for confirmation.  Capture always projects =:SUBJECTS:= to
+  headline tags.  With =C-u=, first shows a buffer-wide report of the
+  changes and diagnostics (unresolved tokens, THIN and missing-=:SUBJECTS:=
+  entries), then applies to every book entry only on confirmation;
+  declining is a pure audit.  Capture always projects =:SUBJECTS:= to
   tags on filing.
 - =org-reading-list-tag-infer-function= (default =nil=): a hook for
   inferring tags for entries below the minimum.  Live LLM inference via
