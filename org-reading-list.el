@@ -519,6 +519,16 @@ normalized subject tokens, or nil.  `org-reading-list-fetch-subjects'
 runs them all and unions the results into :SUBJECTS:.  Extension modules
 \(such as org-reading-list-mi) add their own source to this list.")
 
+(defvar org-reading-list-enrich-functions nil
+  "Functions that enrich the entry at point during `org-reading-list-enrich'.
+Each is called with one argument NO-PROMPT, may fill or (with
+confirmation, unless NO-PROMPT) refresh properties of the entry at point,
+and returns the list of property names it changed, or nil.  Extension
+modules such as org-reading-list-mi add their source here.  Run after
+identifier resolution and LC Catalog field-filling, before :SUBJECTS: is
+unioned.")
+
+
 (defun org-reading-list--fetch-entry-subjects ()
   "Collect subjects for the entry at point and set :SUBJECTS:.
 Union the existing :SUBJECTS: with the results of every function in
@@ -603,6 +613,26 @@ Return nil when the entry has no :SUBJECTS:."
       (let ((subjects (org-reading-list--entry-subjects)))
         (and subjects
              (org-set-tags (seq-take subjects org-reading-list-max-tags)))))))
+
+(defun org-reading-list--enrich-entry (&optional no-prompt)
+  "Enrich the entry at point from every source that confidently matches.
+Resolve a hard identifier (`org-reading-list--resolve-identifiers'), fill
+bibliographic fields from the LC Catalog, run each function in
+`org-reading-list-enrich-functions' (e.g. MILibrary holdings and call
+number), then union :SUBJECTS: and re-derive the heading tags.  Each
+stage fills empty fields; a differing non-empty field is overwritten only
+on confirmation unless NO-PROMPT is non-nil.  A source that finds no
+confident match contributes nothing.  Return a report plist with keys
+:ids :loc :ext :subjects, each the value its stage produced."
+  (let* ((ids (org-reading-list--resolve-identifiers))
+         (recs (ignore-errors (org-reading-list--loc-entry-records)))
+         (loc (and recs (org-reading-list--loc-apply-fields recs)))
+         (ext (mapcan (lambda (fn) (copy-sequence (funcall fn no-prompt)))
+                      org-reading-list-enrich-functions))
+         (subjects (org-reading-list--fetch-entry-subjects)))
+    (org-reading-list--reproject-entry-tags)
+    (list :ids ids :loc loc :ext ext :subjects subjects)))
+
 
 
 (defun org-reading-list--derive-tags (data)

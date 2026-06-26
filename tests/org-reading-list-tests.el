@@ -1314,6 +1314,44 @@ BODY may reference `file', the temp file's path."
       (should-not (org-entry-get nil "ISBN"))
       (should-not (org-entry-get nil "LCCN")))))
 
+(ert-deftest org-reading-list-test-enrich-entry-pipeline ()
+  ;; The per-entry pipeline aggregates each stage and passes NO-PROMPT
+  ;; through to the registered enrich functions.
+  (let ((org-reading-list-enrich-functions
+         (list (lambda (np) (if np '("HOLDINGS") '("PROMPTED"))))))
+    (cl-letf (((symbol-function 'org-reading-list--resolve-identifiers)
+               (lambda () '("ISBN")))
+              ((symbol-function 'org-reading-list--loc-entry-records)
+               (lambda () 'recs))
+              ((symbol-function 'org-reading-list--loc-apply-fields)
+               (lambda (_recs &optional _force) '("LCCN")))
+              ((symbol-function 'org-reading-list--fetch-entry-subjects)
+               (lambda () '("sea" "ships")))
+              ((symbol-function 'org-reading-list--reproject-entry-tags)
+               (lambda () nil)))
+      (let ((r (org-reading-list--enrich-entry t)))
+        (should (equal (plist-get r :ids) '("ISBN")))
+        (should (equal (plist-get r :loc) '("LCCN")))
+        (should (equal (plist-get r :ext) '("HOLDINGS")))
+        (should (equal (plist-get r :subjects) '("sea" "ships")))))))
+
+(ert-deftest org-reading-list-test-enrich-entry-failsafe-loc ()
+  ;; A LoC no-match (user-error) does not abort the pipeline.
+  (let ((org-reading-list-enrich-functions nil))
+    (cl-letf (((symbol-function 'org-reading-list--resolve-identifiers)
+               (lambda () nil))
+              ((symbol-function 'org-reading-list--loc-entry-records)
+               (lambda () (user-error "no record")))
+              ((symbol-function 'org-reading-list--fetch-entry-subjects)
+               (lambda () nil))
+              ((symbol-function 'org-reading-list--reproject-entry-tags)
+               (lambda () nil)))
+      (let ((r (org-reading-list--enrich-entry)))
+        (should-not (plist-get r :loc))
+        (should-not (plist-get r :ext))))))
+
+
+
 
 
 

@@ -474,6 +474,18 @@ when no MILibrary record is found."
              (if changed (format ": %s" (string-join changed ", "))
                " (no change)"))))
 
+(defun org-reading-list-mi--enrich (&optional no-prompt)
+  "Enrich the entry at point from MILibrary; return changed property names.
+Fetch the entry's MILibrary record with
+`org-reading-list-mi--entry-record-data' (guarded by author and year) and
+apply it: add MILIB holdings and call number, fill empty fields, and —
+unless NO-PROMPT — refresh differing fields on confirmation.  Return nil
+when no record matches.  Registered on
+`org-reading-list-enrich-functions'."
+  (let ((data (org-reading-list-mi--entry-record-data)))
+    (and data (org-reading-list-mi--apply-update data no-prompt))))
+
+
 ;;;###autoload
 (defun org-reading-list-mi-search (&optional choose-index)
   "Search MILibrary, pick a result, and capture or update it.
@@ -521,6 +533,10 @@ record matches."
   (let* ((bibid (ignore-errors (org-reading-list-mi--entry-bibid)))
          (rec (and bibid (org-reading-list-mi--bib-record bibid))))
     (and rec (org-reading-list--marc-subject-tags (list rec)))))
+
+(add-to-list 'org-reading-list-enrich-functions
+             #'org-reading-list-mi--enrich t)
+
 
 (add-to-list 'org-reading-list-subject-functions
              #'org-reading-list-mi--subjects t)

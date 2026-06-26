@@ -568,6 +568,11 @@
         (should data)
         (should (equal (plist-get data :title) "X"))))))
 
+(ert-deftest org-reading-list-mi-test-enrich-registered ()
+  ;; The MI enrich source is registered on the orchestrator hook.
+  (should (memq #'org-reading-list-mi--enrich org-reading-list-enrich-functions)))
+
+
 
 
 
