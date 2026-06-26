@@ -1390,6 +1390,37 @@ BODY may reference `file', the temp file's path."
       (should (seq-find (lambda (m) (and m (string-match-p "1/2" m))) msgs))
       (should (seq-find (lambda (m) (and m (string-match-p "Enriched 1 of 2" m))) msgs)))))
 
+(ert-deftest org-reading-list-test-trust-ol-defcustom ()
+  (should (boundp 'org-reading-list-trust-openlibrary-subjects))
+  (should-not (default-value 'org-reading-list-trust-openlibrary-subjects)))
+
+(ert-deftest org-reading-list-test-subjects-upstream-gates-openlibrary ()
+  ;; LoC MARC subjects are always included; Open Library's only when trusted.
+  (cl-letf (((symbol-function 'org-reading-list--loc-entry-records)
+             (lambda ()
+               '((record nil
+                         (datafield ((tag . "650") (ind1 . " ") (ind2 . "0"))
+                                    (subfield ((code . "a")) "California"))
+                         (datafield ((tag . "651") (ind1 . " ") (ind2 . "0"))
+                                    (subfield ((code . "a")) "To 1846"))))))
+            ((symbol-function 'org-reading-list--entry-data)
+             (lambda (&rest _) (list :subjects '("twelve_step_programs")))))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* TOREAD X\n:PROPERTIES:\n:ISBN: 9780299149741\n:END:\n")
+      (goto-char (point-min))
+      (let ((org-reading-list-trust-openlibrary-subjects nil))
+        (let ((s (org-reading-list--subjects-from-upstream)))
+          (should (member "california" s))
+          (should (member "to_1846" s))
+          (should-not (member "twelve_step_programs" s))))
+      (let ((org-reading-list-trust-openlibrary-subjects t))
+        (let ((s (org-reading-list--subjects-from-upstream)))
+          (should (member "california" s))
+          (should (member "twelve_step_programs" s)))))))
+
+
+
 
 
 

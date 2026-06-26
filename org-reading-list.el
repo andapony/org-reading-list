@@ -495,21 +495,38 @@ property.  Modify nothing."
         (goto-char (point-min))))
     (display-buffer buf)))
 
+(defcustom org-reading-list-trust-openlibrary-subjects nil
+  "Whether to include Open Library subjects when enriching :SUBJECTS:.
+Open Library subject headings are crowd-sourced and sometimes wrong (an
+unrelated \"twelve-step programs\" tag, say), and :SUBJECTS: is
+authoritative and append-only, so by default only the LC Catalog's MARC
+650/651 headings (and MILibrary's) are trusted.  Set non-nil to also
+union Open Library's subjects in."
+  :type 'boolean)
+
 (defun org-reading-list--subjects-from-upstream ()
-  "Return subjects for the entry at point from Open Library and the LC Catalog.
-Look the entry up by each identifier it carries (:ISBN:, :LCCN:, :OCLC:,
-:OLID:) and union the subjects the lookups yield.  Return normalized
-tokens, or nil when there is no identifier or no record."
-  (let (subjects)
-    (dolist (spec '(("ISBN" . "ISBN:") ("LCCN" . "LCCN:")
-                    ("OCLC" . "OCLC:") ("OLID" . "OLID:")))
-      (let ((v (org-entry-get nil (car spec))))
-        (when (and v (not (string-empty-p v)))
-          (let* ((id (concat (cdr spec) (car (split-string v "[, ]" t))))
-                 (data (ignore-errors (org-reading-list--entry-data id))))
-            (when data
-              (setq subjects (append subjects (plist-get data :subjects))))))))
+  "Return subjects for the entry at point from the LC Catalog and Open Library.
+The LC Catalog's MARC 650/651 headings are authoritative and always
+included, fetched via `org-reading-list--loc-entry-records'.  Open
+Library's crowd-sourced subjects, looked up by each identifier the entry
+carries (:ISBN:, :LCCN:, :OCLC:, :OLID:), are added only when
+`org-reading-list-trust-openlibrary-subjects' is non-nil.  Return
+normalized tokens, or nil when nothing is found."
+  (let ((subjects
+         (let ((recs (ignore-errors (org-reading-list--loc-entry-records))))
+           (and recs (copy-sequence
+                      (org-reading-list--marc-subject-tags recs))))))
+    (when org-reading-list-trust-openlibrary-subjects
+      (dolist (spec '(("ISBN" . "ISBN:") ("LCCN" . "LCCN:")
+                      ("OCLC" . "OCLC:") ("OLID" . "OLID:")))
+        (let ((v (org-entry-get nil (car spec))))
+          (when (and v (not (string-empty-p v)))
+            (let* ((id (concat (cdr spec) (car (split-string v "[, ]" t))))
+                   (data (ignore-errors (org-reading-list--entry-data id))))
+              (when data
+                (setq subjects (append subjects (plist-get data :subjects)))))))))
     (delete-dups subjects)))
+
 
 (defvar org-reading-list-subject-functions
   (list #'org-reading-list--subjects-from-upstream)
