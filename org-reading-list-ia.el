@@ -518,7 +518,7 @@ reported while probing.  Return a plist (:rows ROWS :checked M
         (i 0))
     (dolist (e entries)
       (setq i (1+ i))
-      (funcall (symbol-function 'progress-reporter-update) reporter i)
+      (progress-reporter-update reporter i)
       (let ((author (plist-get e :author))
             (title (plist-get e :title))
             (localfile (plist-get e :localfile))
