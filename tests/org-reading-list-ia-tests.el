@@ -472,5 +472,24 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
         (org-reading-list-ia--report))
       (should (string-match-p "1 superseded" msg)))))
 
+(ert-deftest org-reading-list-ia-test-current-edition-p ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD X\n:PROPERTIES:\n:CUSTOM_ID: x1\n:DATE: 1888\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "TOREAD X")
+    (should (org-reading-list-ia--current-edition-p '(:year-int 1888)))
+    (should-not (org-reading-list-ia--current-edition-p '(:year-int 1850)))
+    ;; A row with no :year-int never counts as the current edition.
+    (should-not (org-reading-list-ia--current-edition-p '(:identifier "z"))))
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD Y\n:PROPERTIES:\n:CUSTOM_ID: y1\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "TOREAD Y")
+    ;; No :DATE: on the entry -> never current.
+    (should-not (org-reading-list-ia--current-edition-p '(:year-int 1888)))))
+
+
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here

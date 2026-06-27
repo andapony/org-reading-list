@@ -319,6 +319,15 @@ CURRENT-YEAR is the listed entry's year; the matching row is marked
            (or (plist-get row :year) "?")
            (plist-get row :identifier))))
 
+(defun org-reading-list-ia--current-edition-p (row)
+  "Non-nil when ROW's year matches the :DATE: of the entry at point.
+ROW is a candidate plist; this mirrors the \"← current\" table mark.
+Returns nil when the entry has no :DATE: or ROW has no :year-int."
+  (let ((entry-year (org-reading-list-ia--year-int (org-entry-get nil "DATE")))
+        (row-year (plist-get row :year-int)))
+    (and entry-year row-year (= entry-year row-year))))
+
+
 (defun org-reading-list-ia--act-on (row)
   "On confirmation, add ROW as a new edition entry; else return nil."
   (when (org-reading-list-ia--confirm row)
