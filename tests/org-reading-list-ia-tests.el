@@ -640,5 +640,16 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
       (setq-local org-reading-list-ia--report-source dead))
     (should-error (org-reading-list-ia--report-revert) :type 'user-error)))
 
+(ert-deftest org-reading-list-ia-test-to-download-rows ()
+  (let* ((entries (list
+                   '(:citekey "k1" :ia "scan1" :localfile nil)
+                   '(:citekey "k2" :ia "scan2" :localfile "[[file:/b.pdf]]")
+                   '(:citekey "k3" :ia "" :localfile nil)
+                   '(:citekey "k4" :ia nil :localfile nil)))
+         (rows (org-reading-list-ia--to-download-rows entries)))
+    (should (equal (mapcar (lambda (r) (plist-get r :citekey)) rows)
+                   '("k1")))))
+
+
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here

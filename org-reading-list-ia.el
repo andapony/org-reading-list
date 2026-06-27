@@ -505,6 +505,19 @@ Each plist has :pos :citekey :title :date :author :ia :localfile and
                  entries)))))
     (nreverse entries)))
 
+(defun org-reading-list-ia--to-download-rows (entries)
+  "Return the ENTRIES that have an :ia scan id but no local copy.
+An entry qualifies when its :ia is non-empty and its :localfile is empty
+or absent."
+  (seq-filter
+   (lambda (e)
+     (let ((ia (plist-get e :ia))
+           (lf (plist-get e :localfile)))
+       (and ia (not (string-empty-p ia))
+            (or (null lf) (string-empty-p lf)))))
+   entries))
+
+
 (defun org-reading-list-ia--report-rows (entries)
   "Build worklist rows from ENTRIES.
 An entry whose :localfile is non-empty already has a local copy
