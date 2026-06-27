@@ -437,6 +437,44 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
       (should (equal (plist-get (nth 0 es) :superseded) "[[#b1]]"))
       (should (null (plist-get (nth 1 es) :superseded))))))
 
+(ert-deftest org-reading-list-ia-test-report-rows-superseded ()
+  (let ((entries (list
+                  '(:pos 1 :citekey "soule1966" :title "The Annals"
+                    :date "1966" :author "Soulé, Frank")
+                  '(:pos 2 :citekey "old1933" :title "Old"
+                    :date "1933" :author "Old, A" :superseded "[[#new1845]]")
+                  '(:pos 3 :citekey "have1900" :title "Owned"
+                    :date "1900" :author "Have, A"
+                    :localfile "[[file:~/owned.pdf]]"))))
+    (cl-letf (((symbol-function 'org-reading-list-ia--probe-open)
+               (lambda (_a title)
+                 (when (equal title "The Annals")
+                   '(:identifier "i1855" :year "1855")))))
+      (let ((res (org-reading-list-ia--report-rows entries)))
+        (should (= (plist-get res :superseded) 1))   ; old1933 skipped
+        (should (= (plist-get res :have-copy) 1))     ; have1900 skipped
+        (should (= (plist-get res :checked) 1))       ; only soule probed
+        (should (= (length (plist-get res :rows)) 1))
+        (should (equal (plist-get (car (plist-get res :rows)) :citekey)
+                       "soule1966"))))))
+
+(ert-deftest org-reading-list-ia-test-report-superseded-message ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n"
+            "** A\n:PROPERTIES:\n:CUSTOM_ID: a1\n:TITLE: A\n:AUTHOR: X, Y\n"
+            ":DATE: 1900\n:SUPERSEDED_BY: [[#b1]]\n:END:\n")
+    (let (msg)
+      (cl-letf (((symbol-function 'org-reading-list-ia--probe-open)
+                 (lambda (&rest _) nil))
+                ((symbol-function 'pop-to-buffer) (lambda (&rest _) nil))
+                ((symbol-function 'message)
+                 (lambda (fmt &rest args) (setq msg (apply #'format fmt args)))))
+        (org-reading-list-ia--report))
+      (should (string-match-p "1 superseded" msg)))))
+
+
+
 
 
 (provide 'org-reading-list-ia-tests)

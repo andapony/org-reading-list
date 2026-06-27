@@ -428,21 +428,24 @@ Each plist has :pos :citekey :title :date :author :localfile and :superseded."
 
 (defun org-reading-list-ia--report-rows (entries)
   "Build worklist rows from ENTRIES.
-An entry whose :localfile is non-empty already has a local copy: it is
-counted into :have-copy and never probed.  Each remaining entry (with an
-:author and :title) is probed via `org-reading-list-ia--probe-open'; one
-that yields an open hit becomes a row (the entry plist with :earliest
-added).  Return a plist (:rows ROWS :checked M :have-copy K :errors
-KEYS): M is the number probed, K the number skipped as already-copied,
-ROWS the hits, KEYS the cite keys of entries whose probe errored."
-  (let ((rows nil) (errors nil) (checked 0) (have-copy 0))
+An entry whose :localfile is non-empty already has a local copy
+\(counted into :have-copy); an entry whose :superseded is non-empty has
+been redirected to a preferred edition (counted into :superseded);
+neither is probed.  Each remaining entry (with an :author and :title) is
+probed via `org-reading-list-ia--probe-open'; one that yields an open
+hit becomes a row (the entry plist with :earliest added).  Return a
+plist (:rows ROWS :checked M :have-copy K :superseded J :errors KEYS)."
+  (let ((rows nil) (errors nil) (checked 0) (have-copy 0) (superseded 0))
     (dolist (e entries)
       (let ((author (plist-get e :author))
             (title (plist-get e :title))
-            (localfile (plist-get e :localfile)))
+            (localfile (plist-get e :localfile))
+            (super (plist-get e :superseded)))
         (cond
          ((and localfile (not (string-empty-p localfile)))
           (setq have-copy (1+ have-copy)))
+         ((and super (not (string-empty-p super)))
+          (setq superseded (1+ superseded)))
          ((and author title)
           (setq checked (1+ checked))
           (condition-case nil
@@ -453,6 +456,7 @@ ROWS the hits, KEYS the cite keys of entries whose probe errored."
     (list :rows (nreverse rows)
           :checked checked
           :have-copy have-copy
+          :superseded superseded
           :errors (nreverse errors))))
 
 (defun org-reading-list-ia--report-drill ()
@@ -508,10 +512,12 @@ ROWS the hits, KEYS the cite keys of entries whose probe errored."
       (tabulated-list-print)
       (local-set-key (kbd "RET") #'org-reading-list-ia--report-drill))
     (message
-     "%d of %d entries without a local copy have an open scan available%s%s"
+     "%d of %d entries without a local copy have an open scan available%s%s%s"
      (length rows) (plist-get res :checked)
      (let ((k (plist-get res :have-copy)))
        (if (> k 0) (format "; %d already have a local copy" k) ""))
+     (let ((j (plist-get res :superseded)))
+       (if (> j 0) (format "; %d superseded" j) ""))
      (if (plist-get res :errors)
          (format "; %d could not be checked" (length (plist-get res :errors)))
        ""))
