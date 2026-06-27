@@ -314,6 +314,10 @@ Open Library paths refer to the books API with =jscmd=data=
   (=:LOCALFILE:=) yet but for which an openly-readable scan is available
   on the Internet Archive — your "scans to grab" list.  Press RET on a
   row to drill into that entry's full candidate table.
+  Picking the edition you already have (the "← current" row, whose year
+  matches the entry's =:DATE:=) attaches that scan to the existing entry
+  in place — setting =:IA:= and backfilling =:OLID:=/=:PAGES:= when empty
+  — instead of adding a new heading.
 - *subjects* are uncontrolled-ish; expect both LCSH and folksonomy.
   Prune to your tag vocabulary when filing.
 

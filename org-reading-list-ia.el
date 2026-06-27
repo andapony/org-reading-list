@@ -370,9 +370,14 @@ report.  Return non-nil when changes were applied, nil otherwise."
 
 
 (defun org-reading-list-ia--act-on (row)
-  "On confirmation, add ROW as a new edition entry; else return nil."
-  (when (org-reading-list-ia--confirm row)
-    (org-reading-list-ia--add-edition row)))
+  "Act on candidate ROW for the entry at point.
+When ROW is the entry's current edition (its year matches :DATE:),
+attach its scan in place via `org-reading-list-ia--attach-edition'.
+Otherwise add ROW as a new edition, on confirmation."
+  (if (org-reading-list-ia--current-edition-p row)
+      (org-reading-list-ia--attach-edition row)
+    (when (org-reading-list-ia--confirm row)
+      (org-reading-list-ia--add-edition row))))
 
 (defvar-local org-reading-list-ia--rows nil
   "Editions backing the current candidate buffer.")

@@ -534,6 +534,30 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
       (should (equal (org-entry-get nil "IA") "ia1"))
       (should (equal (org-entry-get nil "OLID") "O")))))
 
+(ert-deftest org-reading-list-ia-test-act-on-routes ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD X\n:PROPERTIES:\n:CUSTOM_ID: x1\n:DATE: 1888\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "TOREAD X")
+    (let (attached added)
+      (cl-letf (((symbol-function 'org-reading-list-ia--attach-edition)
+                 (lambda (_r) (setq attached t)))
+                ((symbol-function 'org-reading-list-ia--add-edition)
+                 (lambda (_r) (setq added t)))
+                ((symbol-function 'org-reading-list-ia--confirm)
+                 (lambda (_r) t)))
+        ;; Current-edition row -> attach.
+        (org-reading-list-ia--act-on '(:year-int 1888 :identifier "a"))
+        (should attached)
+        (should-not added)
+        (setq attached nil added nil)
+        ;; Different-year row -> add.
+        (org-reading-list-ia--act-on '(:year-int 1850 :identifier "b"))
+        (should added)
+        (should-not attached)))))
+
+
 
 
 
