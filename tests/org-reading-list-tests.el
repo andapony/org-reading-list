@@ -1904,6 +1904,40 @@ BODY may reference `file', the temp file's path."
       (should (= (point) pos))
       (should-not (org-invisible-p (point))))))
 
+(ert-deftest org-reading-list-test-import-single-before-heading ()
+  (let ((dest-f (make-temp-file "rldest" nil ".org"))
+        (src-f (make-temp-file "rlsrc" nil ".org")))
+    (unwind-protect
+        (let ((org-reading-list-file dest-f) (org-reading-list-headline "Books"))
+          (with-temp-file dest-f (insert "* Books\n"))
+          (with-temp-file src-f
+            (insert "#+TITLE: src\n* Books\n** TOREAD A\n:PROPERTIES:\n"
+                    ":CUSTOM_ID: a1\n:TITLE: A\n:END:\n"))
+          (with-current-buffer (find-file-noselect src-f)
+            (goto-char (point-min))             ; before the first heading
+            (should-error (org-reading-list-import) :type 'user-error)))
+      (delete-file dest-f) (delete-file src-f))))
+
+(ert-deftest org-reading-list-test-import-single-on-books-heading ()
+  (let ((dest-f (make-temp-file "rldest" nil ".org"))
+        (src-f (make-temp-file "rlsrc" nil ".org")))
+    (unwind-protect
+        (let ((org-reading-list-file dest-f) (org-reading-list-headline "Books"))
+          (with-temp-file dest-f (insert "* Books\n"))
+          (with-temp-file src-f
+            (insert "* Books\n** TOREAD A\n:PROPERTIES:\n:CUSTOM_ID: a1\n"
+                    ":TITLE: A\n:END:\n"))
+          (with-current-buffer (find-file-noselect src-f)
+            (goto-char (point-min))
+            (re-search-forward "^\\* Books")    ; on the Books container heading
+            (should-error (org-reading-list-import) :type 'user-error))
+          ;; nothing was imported into the destination (still just "Books")
+          (with-current-buffer (find-file-noselect dest-f)
+            (should (= (length (org-reading-list--scan-entries)) 1))))
+      (delete-file dest-f) (delete-file src-f))))
+
+
+
 
 
 

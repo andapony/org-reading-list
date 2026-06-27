@@ -1023,7 +1023,19 @@ Return the new entry's buffer position."
 
 (defun org-reading-list--import-at-point (src-name dest)
   "Import the entry at point into DEST, confirming on a duplicate.
-SRC-NAME is the source's display name.  DEST is the destination buffer."
+SRC-NAME is the source's display name.  DEST is the destination buffer.
+Signals a `user-error' when point is not on a book entry (before the
+first heading or on the Books container heading itself)."
+  ;; Single import requires point on a book entry, not before the first
+  ;; heading and not the Books container itself.
+  (unless (ignore-errors (save-excursion (org-back-to-heading t) t))
+    (user-error "Point is not on a reading-list entry"))
+  (when (save-excursion
+          (org-back-to-heading t)
+          (equal (org-get-heading t t t t) org-reading-list-headline))
+    (user-error
+     "Point is on the %s heading — place point on a book, or use a prefix argument to import the whole file"
+     org-reading-list-headline))
   (let* ((data (org-reading-list--entry-dup-data))
          (dup (org-reading-list--duplicate-in-file data)))
     (if (and dup (not (org-reading-list--confirm-duplicate dup)))
