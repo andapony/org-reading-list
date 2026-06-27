@@ -391,8 +391,6 @@ Otherwise add ROW as a new edition, on confirmation."
 (defvar-local org-reading-list-ia--report-source nil
   "Buffer the discovery report was generated from, for re-running.")
 
-
-
 (defun org-reading-list-ia--pick ()
   "Add the edition on the current candidate-table line."
   (interactive)
@@ -423,7 +421,6 @@ reading list)."
     (quit-window)
     (when (buffer-live-p rb)
       (pop-to-buffer rb))))
-
 
 (defun org-reading-list-ia--show-candidates (rows current-year origin truncated
                                                   &optional return-buffer)
@@ -574,7 +571,6 @@ Bound as the report buffer's `revert-buffer-function', so `g' refreshes."
         (with-current-buffer src (org-reading-list-ia--report))
       (user-error "Report source is gone; re-run from the reading list"))))
 
-
 (defun org-reading-list-ia--report ()
   "Report un-scanned entries that have an open scan available on IA."
   (let* ((src (current-buffer))
@@ -609,7 +605,7 @@ Bound as the report buffer's `revert-buffer-function', so `g' refreshes."
                                        "")))
                    (setq i (1+ i))))
                rows)))
-      (tabulated-list-print)
+      (tabulated-list-print t)
       (local-set-key (kbd "RET") #'org-reading-list-ia--report-drill))
     (message
      "%d of %d entries without a local copy have an open scan available%s%s%s"

@@ -613,6 +613,23 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
                     #'org-reading-list-ia--report-revert)))
       (kill-buffer "*IA discovery report*"))))
 
+(ert-deftest org-reading-list-ia-test-report-revert ()
+  ;; Live source: --report-revert calls --report with current-buffer = src.
+  (let ((src (get-buffer-create "*rev-src*")) ran)
+    (unwind-protect
+        (with-temp-buffer
+          (setq-local org-reading-list-ia--report-source src)
+          (cl-letf (((symbol-function 'org-reading-list-ia--report)
+                     (lambda () (setq ran (current-buffer)))))
+            (org-reading-list-ia--report-revert)
+            (should (eq ran src))))
+      (when (buffer-live-p src) (kill-buffer src))))
+  ;; Dead source: --report-revert signals user-error.
+  (with-temp-buffer
+    (let ((dead (get-buffer-create "*rev-dead*")))
+      (kill-buffer dead)
+      (setq-local org-reading-list-ia--report-source dead))
+    (should-error (org-reading-list-ia--report-revert) :type 'user-error)))
 
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here
