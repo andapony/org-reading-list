@@ -391,6 +391,10 @@ Otherwise add ROW as a new edition, on confirmation."
 (defvar-local org-reading-list-ia--report-source nil
   "Buffer the discovery report was generated from, for re-running.")
 
+(defvar-local org-reading-list-ia--to-download-source nil
+  "Buffer the to-download report was generated from, for re-running.")
+
+
 (defun org-reading-list-ia--pick ()
   "Add the edition on the current candidate-table line."
   (interactive)
@@ -645,6 +649,75 @@ whole buffer, with drill-in to the per-entry table."
   (if all
       (org-reading-list-ia--report)
     (org-reading-list-ia--find-at-point)))
+
+(define-derived-mode org-reading-list-ia-to-download-mode tabulated-list-mode
+  "IA-ToDownload"
+  "Major mode for the Internet Archive to-download worklist."
+  (setq tabulated-list-format
+        [("Cite key" 16 nil) ("Title" 40 nil) ("IA id" 22 nil)])
+  (tabulated-list-init-header))
+
+(defun org-reading-list-ia--to-download-revert (&rest _)
+  "Re-run the to-download scan from the report's source buffer.
+Bound as the buffer's `revert-buffer-function', so `g' refreshes."
+  (let ((src org-reading-list-ia--to-download-source))
+    (if (buffer-live-p src)
+        (with-current-buffer src (org-reading-list-ia-to-download))
+      (user-error "Report source is gone; re-run from the reading list"))))
+
+(defun org-reading-list-ia--to-download-at-point ()
+  "Download the PDF for the entry on the current to-download line."
+  (interactive)
+  (let* ((id (tabulated-list-get-id))
+         (row (when id (nth (string-to-number id) org-reading-list-ia--rows)))
+         (origin (and row (plist-get row :origin))))
+    (if origin
+        (progn
+          (pop-to-buffer (marker-buffer origin))
+          (goto-char origin)
+          (org-reading-list-download-pdf))
+      (user-error "No entry on this line"))))
+
+;;;###autoload
+(defun org-reading-list-ia-to-download ()
+  "List reading-list entries with an IA scan but no local copy.
+RET on a row downloads that entry's PDF; `g' refreshes; `q' quits."
+  (interactive)
+  (let* ((src (current-buffer))
+         (entries (save-restriction
+                    (widen) (org-reading-list-ia--scan-headings)))
+         (rows (mapcar
+                (lambda (r)
+                  (append r (list :origin
+                                  (with-current-buffer src
+                                    (copy-marker (plist-get r :pos))))))
+                (org-reading-list-ia--to-download-rows entries)))
+         (buf (get-buffer-create "*IA to download*")))
+    (with-current-buffer buf
+      (org-reading-list-ia-to-download-mode)
+      (setq-local org-reading-list-ia--to-download-source src)
+      (setq-local revert-buffer-function
+                  #'org-reading-list-ia--to-download-revert)
+      (setq org-reading-list-ia--rows rows
+            tabulated-list-entries
+            (let ((i 0))
+              (mapcar
+               (lambda (r)
+                 (prog1
+                     (list (number-to-string i)
+                           (vector (or (plist-get r :citekey) "")
+                                   (or (plist-get r :title) "")
+                                   (or (plist-get r :ia) "")))
+                   (setq i (1+ i))))
+               rows)))
+      (tabulated-list-print t)
+      (local-set-key (kbd "RET") #'org-reading-list-ia--to-download-at-point))
+    (message "%d entries have an IA scan but no local copy" (length rows))
+    (pop-to-buffer buf)))
+
+
+
+
 
 (provide 'org-reading-list-ia)
 ;;; org-reading-list-ia.el ends here

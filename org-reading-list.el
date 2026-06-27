@@ -2003,7 +2003,9 @@ Signal a `user-error' when no such entry exists."
    ["Curate"
     ("t" "Tags: review & apply" org-reading-list--dispatch-preen)]]
   [["Files"
-    ("p" "Download PDF" org-reading-list-download-pdf)]
+    ("p" "Download PDF" org-reading-list-download-pdf)
+    ("P" "Scans to download" org-reading-list-ia-to-download
+     :if (lambda () (fboundp 'org-reading-list-ia-to-download)))]
    ["Record"
     ("h" "Set holdings" org-reading-list-set-holdings)
     ("k" "Backfill citekeys" org-reading-list-ensure-citekeys)

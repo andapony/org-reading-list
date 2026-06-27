@@ -650,6 +650,49 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
     (should (equal (mapcar (lambda (r) (plist-get r :citekey)) rows)
                    '("k1")))))
 
+(ert-deftest org-reading-list-ia-test-to-download-build ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n"
+            "** TOREAD A\n:PROPERTIES:\n:CUSTOM_ID: a1\n:TITLE: A\n"
+            ":IA: scanA\n:END:\n"
+            "** TOREAD B\n:PROPERTIES:\n:CUSTOM_ID: b1\n:TITLE: B\n"
+            ":IA: scanB\n:LOCALFILE: [[file:/b.pdf]]\n:END:\n")
+    (let ((src (current-buffer)))
+      (cl-letf (((symbol-function 'pop-to-buffer) (lambda (&rest _) nil)))
+        (org-reading-list-ia-to-download))
+      (with-current-buffer "*IA to download*"
+        (should (eq org-reading-list-ia--to-download-source src))
+        (should (eq revert-buffer-function
+                    #'org-reading-list-ia--to-download-revert))
+        (should (= (length org-reading-list-ia--rows) 1))
+        (should (equal (plist-get (car org-reading-list-ia--rows) :citekey)
+                       "a1")))
+      (kill-buffer "*IA to download*"))))
+
+(ert-deftest org-reading-list-ia-test-to-download-at-point ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD A\n:PROPERTIES:\n:CUSTOM_ID: a1\n"
+            ":IA: scanA\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "TOREAD A")
+    (let ((m (point-marker)) (downloaded nil))
+      (with-temp-buffer
+        (org-reading-list-ia-to-download-mode)
+        (setq org-reading-list-ia--rows (list (list :citekey "a1" :origin m)))
+        (setq tabulated-list-entries (list (list "0" (vector "a1" "" "scanA"))))
+        (tabulated-list-print)
+        (goto-char (point-min))
+        (cl-letf (((symbol-function 'org-reading-list-download-pdf)
+                   (lambda () (setq downloaded (org-entry-get nil "CUSTOM_ID"))))
+                  ((symbol-function 'pop-to-buffer)
+                   (lambda (b &rest _) (set-buffer b))))
+          (org-reading-list-ia--to-download-at-point))
+        (should (equal downloaded "a1"))))))
+
+
+
 
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here
