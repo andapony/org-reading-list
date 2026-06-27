@@ -327,6 +327,47 @@ Returns nil when the entry has no :DATE: or ROW has no :year-int."
         (row-year (plist-get row :year-int)))
     (and entry-year row-year (= entry-year row-year))))
 
+(defun org-reading-list-ia--attach-edition (cand)
+  "Attach CAND's scan to the entry at point (its current edition).
+Set :IA: to CAND's identifier unless already equal, and backfill
+:OLID:/:PAGES: from CAND only when the entry's are empty.  Preview the
+property deltas and apply on confirmation, then reveal the entry and
+report.  Return non-nil when changes were applied, nil otherwise."
+  (let* ((key (or (org-entry-get nil "CUSTOM_ID") "entry"))
+         (new-ia (plist-get cand :identifier))
+         (cand-olid (plist-get cand :olid))
+         (cand-pages (let ((n (plist-get cand :imagecount)))
+                       (and n (> n 0) (number-to-string n))))
+         (cur-ia (org-entry-get nil "IA"))
+         (cur-olid (org-entry-get nil "OLID"))
+         (cur-pages (org-entry-get nil "PAGES"))
+         (changes nil))
+    (unless (equal cur-ia new-ia)
+      (push (list "IA" cur-ia new-ia) changes))
+    (when (and cand-olid (or (null cur-olid) (string-empty-p cur-olid)))
+      (push (list "OLID" cur-olid cand-olid) changes))
+    (when (and cand-pages (or (null cur-pages) (string-empty-p cur-pages)))
+      (push (list "PAGES" cur-pages cand-pages) changes))
+    (setq changes (nreverse changes))
+    (if (null changes)
+        (progn (message "%s already has this scan" key) nil)
+      (when (yes-or-no-p
+             (format "Attach to %s:\n%s\nApply? " key
+                     (mapconcat
+                      (lambda (c)
+                        (format "  %s: %s -> %s" (nth 0 c)
+                                (if (or (null (nth 1 c))
+                                        (string-empty-p (nth 1 c)))
+                                    "(none)" (nth 1 c))
+                                (nth 2 c)))
+                      changes "\n")))
+        (dolist (c changes)
+          (org-entry-put nil (nth 0 c) (nth 2 c)))
+        (org-reveal)
+        (message "Attached scan to %s" key)
+        t))))
+
+
 
 (defun org-reading-list-ia--act-on (row)
   "On confirmation, add ROW as a new edition entry; else return nil."

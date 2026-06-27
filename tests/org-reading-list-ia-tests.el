@@ -490,6 +490,53 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
     ;; No :DATE: on the entry -> never current.
     (should-not (org-reading-list-ia--current-edition-p '(:year-int 1888)))))
 
+(ert-deftest org-reading-list-ia-test-attach-edition ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD CP\n:PROPERTIES:\n:CUSTOM_ID: banc1888\n"
+            ":TITLE: California Pastoral\n:DATE: 1888\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "TOREAD CP")
+    (let ((cand '(:identifier "calpasto00bancgoog" :olid "OL5M" :imagecount 542)))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+        (should (org-reading-list-ia--attach-edition cand)))
+      (should (equal (org-entry-get nil "IA") "calpasto00bancgoog"))
+      (should (equal (org-entry-get nil "OLID") "OL5M"))
+      (should (equal (org-entry-get nil "PAGES") "542")))))
+
+(ert-deftest org-reading-list-ia-test-attach-edition-no-overwrite ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD CP\n:PROPERTIES:\n:CUSTOM_ID: banc1888\n"
+            ":DATE: 1888\n:OLID: OLKEEP\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "TOREAD CP")
+    (let ((cand '(:identifier "ia1" :olid "OLNEW" :imagecount 100)))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+        (org-reading-list-ia--attach-edition cand))
+      (should (equal (org-entry-get nil "IA") "ia1"))
+      (should (equal (org-entry-get nil "OLID") "OLKEEP"))    ; not overwritten
+      (should (equal (org-entry-get nil "PAGES") "100")))))
+
+(ert-deftest org-reading-list-ia-test-attach-edition-no-delta ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD CP\n:PROPERTIES:\n:CUSTOM_ID: banc1888\n"
+            ":DATE: 1888\n:IA: ia1\n:OLID: O\n:PAGES: 9\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "TOREAD CP")
+    (let ((cand '(:identifier "ia1" :olid "O2" :imagecount 50)) (asked nil))
+      ;; IA already equal; OLID/PAGES already present -> no delta, no prompt.
+      (cl-letf (((symbol-function 'yes-or-no-p)
+                 (lambda (&rest _) (setq asked t) t)))
+        (should (null (org-reading-list-ia--attach-edition cand))))
+      (should-not asked)
+      (should (equal (org-entry-get nil "IA") "ia1"))
+      (should (equal (org-entry-get nil "OLID") "O")))))
+
+
+
+
 
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here
