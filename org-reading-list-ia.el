@@ -487,7 +487,8 @@ per-candidate metadata."
 
 (defun org-reading-list-ia--scan-headings ()
   "Return entry plists for every keyed heading in the current buffer.
-Each plist has :pos :citekey :title :date :author :localfile and :superseded."
+Each plist has :pos :citekey :title :date :author :ia :localfile and
+:superseded."
   (let (entries)
     (org-map-entries
      (lambda ()
@@ -498,6 +499,7 @@ Each plist has :pos :citekey :title :date :author :localfile and :superseded."
                        :title (org-entry-get nil "TITLE")
                        :date (org-entry-get nil "DATE")
                        :author (org-entry-get nil "AUTHOR")
+                       :ia (org-entry-get nil "IA")
                        :localfile (org-entry-get nil "LOCALFILE")
                        :superseded (org-entry-get nil "SUPERSEDED_BY"))
                  entries)))))
