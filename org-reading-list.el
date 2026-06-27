@@ -747,6 +747,25 @@ read.  Entries without :SUBJECTS: are skipped."
           (message "Preened: %s"
                    (or (string-join (org-get-tags nil t) " ") "none"))))))))
 
+;;;###autoload
+(defun org-reading-list-import (&optional all)
+  "Import reading-list entries from the current buffer into the main list.
+Copy the entry at point into `org-reading-list-file' (re-stamping :ADDED:
+and :FOUND:, keeping the cite key unless it collides), then display it.
+With a prefix argument ALL, import every entry under
+`org-reading-list-headline' in the current buffer instead, non-
+interactively, skipping duplicates."
+  (interactive "P")
+  (when (and buffer-file-name
+             (file-equal-p buffer-file-name org-reading-list-file))
+    (user-error "This is already the main reading list"))
+  (let ((src-name (file-name-nondirectory (or buffer-file-name (buffer-name))))
+        (dest (find-file-noselect org-reading-list-file)))
+    (if all
+        (org-reading-list--import-all src-name dest)
+      (org-reading-list--import-at-point src-name dest))))
+
+
 ;;;; Entry construction
 
 (defun org-reading-list--ol-entry-data (rec bibkey source)
@@ -1010,6 +1029,67 @@ Return the new entry's buffer position."
                                (concat found "; " note)
                              note))))
         pos))))
+
+(defun org-reading-list--import-at-point (src-name dest)
+  "Import the entry at point into DEST, confirming on a duplicate.
+SRC-NAME is the source's display name.  DEST is the destination buffer."
+  (let* ((data (org-reading-list--entry-dup-data))
+         (dup (org-reading-list--duplicate-in-file data)))
+    (if (and dup (not (org-reading-list--confirm-duplicate dup)))
+        (progn
+          (pop-to-buffer dest)
+          (widen)
+          (goto-char (plist-get (cdr dup) :pos))
+          (message "Already in list: %s" (plist-get (cdr dup) :heading)))
+      (let* ((subtree (org-reading-list--subtree-as-toplevel
+                       (org-reading-list--entry-subtree)))
+             (pos (org-reading-list--import-entry subtree src-name dest)))
+        (pop-to-buffer dest)
+        (widen)
+        (goto-char pos)
+        (message "Imported into reading list")))))
+
+(defun org-reading-list--subtree-as-toplevel (subtree)
+  "Return SUBTREE promoted so its outermost heading is level 1.
+Extra leading stars are stripped from every heading line.  A subtree
+already at level 1 is returned unchanged."
+  (if (string-match "^\\(\\*+\\)" subtree)
+      (let ((extra (1- (length (match-string 1 subtree)))))
+        (if (> extra 0)
+            (replace-regexp-in-string
+             (format "^\\*\\{%d\\}" extra) "" subtree)
+          subtree))
+    subtree))
+
+
+(defun org-reading-list--import-all (src-name dest)
+  "Import every keyed entry under the Books headline into DEST.
+SRC-NAME is the source's display name; DEST is the destination buffer.
+Duplicates are skipped silently; a summary is reported."
+  (let ((imported 0) (skipped 0) (total 0))
+    (save-excursion
+      (goto-char (point-min))
+      (when (re-search-forward
+             (format "^\\*+[ \t]+%s[ \t]*$"
+                     (regexp-quote org-reading-list-headline))
+             nil t)
+        (org-map-entries
+         (lambda ()
+           (when (org-entry-get nil "CUSTOM_ID")
+             (setq total (1+ total))
+             (if (org-reading-list--duplicate-in-file
+                  (org-reading-list--entry-dup-data))
+                 (setq skipped (1+ skipped))
+               (org-reading-list--import-entry
+                (org-reading-list--subtree-as-toplevel
+                 (org-reading-list--entry-subtree))
+                src-name dest)
+               (setq imported (1+ imported)))))
+         nil 'tree)))
+    (message "Imported %d, skipped %d duplicates (%d entries in source)"
+             imported skipped total)))
+
+
 
 
 
@@ -1872,6 +1952,12 @@ Signal a `user-error' when no such entry exists."
   (interactive)
   (org-reading-list-ia-find-editions (org-reading-list--dispatch-buffer-p)))
 
+(transient-define-suffix org-reading-list--dispatch-import ()
+  "Run `org-reading-list-import', whole-buffer when the -b switch is on."
+  (interactive)
+  (org-reading-list-import (org-reading-list--dispatch-buffer-p)))
+
+
 ;;;###autoload (autoload 'org-reading-list-dispatch "org-reading-list" nil t)
 (transient-define-prefix org-reading-list-dispatch ()
   "Dispatch menu for org-reading-list."
@@ -1879,7 +1965,8 @@ Signal a `user-error' when no such entry exists."
   [["Add"
     ("s" "Search (MILib)" org-reading-list-search
      :if (lambda () (fboundp 'org-reading-list-search)))
-    ("i" "Insert by ID" org-reading-list-insert)]
+    ("i" "Insert by ID" org-reading-list-insert)
+    ("I" "Import from file" org-reading-list--dispatch-import)]
    ["Enrich"
     ("e" "Enrich (all)" org-reading-list--dispatch-enrich)
     ("l" "Enrich from LoC" org-reading-list-enrich-loc)

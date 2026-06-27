@@ -1707,6 +1707,67 @@ BODY may reference `file', the temp file's path."
         (goto-char pos)
         (should (equal (org-entry-get nil "FOUND") "imported from old.org"))))))
 
+(ert-deftest org-reading-list-test-import-command-guard ()
+  (let ((f (make-temp-file "rl" nil ".org")))
+    (unwind-protect
+        (let ((org-reading-list-file f))
+          (with-temp-file f (insert "* Books\n"))
+          (with-current-buffer (find-file-noselect f)
+            (should-error (org-reading-list-import) :type 'user-error)))
+      (delete-file f))))
+
+(ert-deftest org-reading-list-test-import-command-single ()
+  (let ((dest-f (make-temp-file "rldest" nil ".org"))
+        (src-f (make-temp-file "rlsrc" nil ".org")))
+    (unwind-protect
+        (let ((org-reading-list-file dest-f)
+              (org-reading-list-headline "Books"))
+          (with-temp-file dest-f (insert "* Books\n"))
+          (with-temp-file src-f
+            (insert "* Books\n** TOREAD Imported\n:PROPERTIES:\n:CUSTOM_ID: x1855\n"
+                    ":AUTHOR: X, Y\n:TITLE: A\n:DATE: 1855\n:END:\nNote.\n"))
+          (with-current-buffer (find-file-noselect src-f)
+            (goto-char (point-min))
+            (re-search-forward "^\\*\\* TOREAD Imported")
+            (org-reading-list-import))
+          (with-current-buffer (find-file-noselect dest-f)
+            (goto-char (point-min))
+            (should (re-search-forward "^\\*\\* TOREAD Imported" nil t))
+            (should (equal (org-entry-get nil "CUSTOM_ID") "x1855"))
+            (should (string-match-p "imported from" (org-entry-get nil "FOUND")))))
+      (delete-file dest-f) (delete-file src-f))))
+
+(ert-deftest org-reading-list-test-import-command-bulk ()
+  (let ((dest-f (make-temp-file "rldest" nil ".org"))
+        (src-f (make-temp-file "rlsrc" nil ".org")))
+    (unwind-protect
+        (let ((org-reading-list-file dest-f)
+              (org-reading-list-headline "Books"))
+          (with-temp-file dest-f
+            (insert "* Books\n** TOREAD Dup\n:PROPERTIES:\n:CUSTOM_ID: dup1900\n"
+                    ":TITLE: Dup Book\n:AUTHOR: Dup, A\n:END:\n"))
+          (with-temp-file src-f
+            (insert "* Books\n"
+                    "** TOREAD Dup\n:PROPERTIES:\n:CUSTOM_ID: dup1900\n"
+                    ":TITLE: Dup Book\n:AUTHOR: Dup, A\n:END:\n"
+                    "** TOREAD New\n:PROPERTIES:\n:CUSTOM_ID: new1855\n"
+                    ":TITLE: New Book\n:AUTHOR: New, B\n:DATE: 1855\n:END:\n"))
+          (let (msg)
+            (cl-letf (((symbol-function 'message)
+                       (lambda (fmt &rest a) (setq msg (apply #'format fmt a)))))
+              (with-current-buffer (find-file-noselect src-f)
+                (goto-char (point-min))
+                (org-reading-list-import t)))
+            (should (string-match-p "Imported 1, skipped 1 duplicates (2 entries"
+                                    msg)))
+          (with-current-buffer (find-file-noselect dest-f)
+            (goto-char (point-min))
+            (should (re-search-forward "^\\*\\* TOREAD New" nil t))))
+      (delete-file dest-f) (delete-file src-f))))
+
+
+
+
 
 
 
