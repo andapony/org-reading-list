@@ -1626,5 +1626,43 @@ BODY may reference `file', the temp file's path."
     (should (null (org-entry-get nil "SUPERSEDED_BY")))
     (should (commandp 'org-reading-list-supersede))))
 
+(ert-deftest org-reading-list-test-entry-subtree ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n"
+            "** TOREAD A :t1:\n:PROPERTIES:\n:CUSTOM_ID: a1\n:END:\nNote A.\n"
+            "** TOREAD B\n:PROPERTIES:\n:CUSTOM_ID: b1\n:END:\nNote B.\n"
+            "# Local Variables:\n# foo: bar\n# End:\n")
+    (goto-char (point-min))
+    (re-search-forward "^\\*\\* TOREAD A")
+    (let ((s (org-reading-list--entry-subtree)))
+      (should (string-prefix-p "** TOREAD A :t1:" s))
+      (should (string-match-p "Note A\\." s))
+      (should-not (string-match-p "Note B" s)))
+    ;; Last entry: the trailing local-variables block must not be swept in.
+    (re-search-forward "^\\*\\* TOREAD B")
+    (let ((s (org-reading-list--entry-subtree)))
+      (should (string-match-p "Note B\\." s))
+      (should-not (string-match-p "Local Variables" s)))))
+
+(ert-deftest org-reading-list-test-entry-dup-data ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD A\n:PROPERTIES:\n:CUSTOM_ID: a1\n"
+            ":ISBN: 978-0-252-06631-3\n:TITLE: One: A Tale\n:AUTHOR: Smith, Ann\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "^\\*\\* TOREAD A")
+    (let ((data (org-reading-list--entry-dup-data)))
+      (should (equal (plist-get data :isbns) '("9780252066313")))
+      (should (equal (plist-get data :title) "One: A Tale"))
+      (should (equal (cdr (assoc "AUTHOR" (plist-get data :props))) "Smith, Ann"))
+      ;; --find-duplicate detects a same-ISBN match using this data shape.
+      (let ((entries (list (list :isbns '("9780252066313") :title "Whatever"
+                                 :author "Other, X" :heading "X"))))
+        (should (eq (car (org-reading-list--find-duplicate data entries))
+                    'exact))))))
+
+
+
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here

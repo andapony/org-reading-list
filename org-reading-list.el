@@ -950,6 +950,35 @@ The file's buffer is created if it is not already visited."
       (org-reading-list--find-duplicate
        data (org-reading-list--scan-entries)))))
 
+(defun org-reading-list--entry-subtree ()
+  "Return the Org subtree text of the entry at point.
+Includes the heading line, property drawer, and body, up to the next
+heading.  A trailing file local-variables block (which can be swept into
+the last entry's subtree) is dropped, and trailing whitespace trimmed."
+  (save-excursion
+    (org-back-to-heading t)
+    (let* ((beg (point))
+           (end (save-excursion (org-end-of-subtree t t) (point)))
+           (text (buffer-substring-no-properties beg end)))
+      (when (string-match "^[ \t]*#[ \t]*Local Variables:" text)
+        (setq text (substring text 0 (match-beginning 0))))
+      (string-trim-right text))))
+
+(defun org-reading-list--entry-dup-data ()
+  "Return duplicate-check data for the entry at point.
+A plist with :isbns (hyphens stripped), :title, and :props (an alist
+holding \"OLID\" and \"AUTHOR\"), shaped for the DATA argument of
+`org-reading-list--duplicate-in-file'."
+  (let ((isbn (org-entry-get nil "ISBN")))
+    (list :isbns (and isbn
+                      (mapcar (lambda (s) (replace-regexp-in-string "-" "" s))
+                              (split-string isbn "[, ]" t)))
+          :title (org-entry-get nil "TITLE")
+          :props (list (cons "OLID" (org-entry-get nil "OLID"))
+                       (cons "AUTHOR" (org-entry-get nil "AUTHOR"))))))
+
+
+
 (define-error 'org-reading-list-duplicate "Book already in reading list")
 
 (defun org-reading-list--confirm-duplicate (dup)
