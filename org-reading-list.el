@@ -2001,8 +2001,8 @@ Signal a `user-error' when no such entry exists."
     ("E" "Find IA editions" org-reading-list--dispatch-find-editions
      :if (lambda () (fboundp 'org-reading-list-ia-find-editions)))]
    ["Curate"
-    ("t" "Tags: review & apply" org-reading-list--dispatch-preen)]
-   ["Files"
+    ("t" "Tags: review & apply" org-reading-list--dispatch-preen)]]
+  [["Files"
     ("p" "Download PDF" org-reading-list-download-pdf)]
    ["Record"
     ("h" "Set holdings" org-reading-list-set-holdings)
