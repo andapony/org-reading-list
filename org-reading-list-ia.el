@@ -284,12 +284,15 @@ added to the original.  Return the new entry's buffer position."
                         (match-string 1 entry))))
       ;; Back-link first (does not shift ORIGPOS), then file the new entry.
       (org-reading-list-ia--add-backlink origpos newkey)
-      (prog1
-          (save-restriction
-            (widen)
-            (org-reading-list--insert-under-headline
-             entry org-reading-list-headline))
-        (message "Added edition %s" newkey)))))
+      (let ((pos (save-restriction
+                   (widen)
+                   (org-reading-list--insert-under-headline
+                    entry org-reading-list-headline))))
+        (message "Added edition %s" newkey)
+        (save-excursion
+          (goto-char pos)
+          (org-reading-list-ia--offer-download))
+        pos))))
 
 (defun org-reading-list-ia--format-row (row current-year)
   "Return a tabulated-list cell vector for edition ROW.
@@ -367,6 +370,7 @@ report.  Return non-nil when changes were applied, nil otherwise."
           (org-entry-put nil (nth 0 c) (nth 2 c)))
         (org-reveal)
         (message "Attached scan to %s" key)
+        (org-reading-list-ia--offer-download)
         t))))
 
 (defun org-reading-list-ia--act-on (row)

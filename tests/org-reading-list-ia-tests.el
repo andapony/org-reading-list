@@ -198,12 +198,14 @@
             "Original note.\n")
     (let ((org-reading-list-headline "Books")
           (cand '(:identifier "annals1855" :year "1855" :publisher "Appleton"
-			      :imagecount 560 :olid "OL1M"))
+		              :imagecount 560 :olid "OL1M"))
           (msg nil))
       (goto-char (point-min))
       (re-search-forward "TOREAD The Annals")
       (cl-letf (((symbol-function 'message)
-                 (lambda (fmt &rest args) (setq msg (apply #'format fmt args)))))
+                 (lambda (fmt &rest args) (setq msg (apply #'format fmt args))))
+                ((symbol-function 'org-reading-list-ia--offer-download)
+                 (lambda () nil)))
         (org-reading-list-ia--add-edition cand))
       ;; Message reports the new cite key, not the IA identifier.
       (should (equal msg "Added edition soule1855"))
@@ -272,7 +274,9 @@
         (should (null (org-reading-list-ia--act-on row))))
       (should-not (string-match-p ":IA:" (buffer-string)))
       ;; Confirmed → entry filed.
-      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'org-reading-list-ia--offer-download)
+                 (lambda () nil)))
         (org-reading-list-ia--act-on row))
       (should (string-match-p ":IA: annals1855" (buffer-string))))))
 
@@ -512,7 +516,9 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
     (goto-char (point-min))
     (re-search-forward "TOREAD CP")
     (let ((cand '(:identifier "calpasto00bancgoog" :olid "OL5M" :imagecount 542)))
-      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'org-reading-list-ia--offer-download)
+                 (lambda () nil)))
         (should (org-reading-list-ia--attach-edition cand)))
       (should (equal (org-entry-get nil "IA") "calpasto00bancgoog"))
       (should (equal (org-entry-get nil "OLID") "OL5M"))
@@ -526,7 +532,9 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
     (goto-char (point-min))
     (re-search-forward "TOREAD CP")
     (let ((cand '(:identifier "ia1" :olid "OLNEW" :imagecount 100)))
-      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'org-reading-list-ia--offer-download)
+                 (lambda () nil)))
         (org-reading-list-ia--attach-edition cand))
       (should (equal (org-entry-get nil "IA") "ia1"))
       (should (equal (org-entry-get nil "OLID") "OLKEEP"))    ; not overwritten
@@ -730,6 +738,38 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
                  (lambda () (error "should not download"))))
         (org-reading-list-ia--offer-download)
         (should-not asked)))))
+
+(ert-deftest org-reading-list-ia-test-attach-edition-offers-download ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD CP\n:PROPERTIES:\n:CUSTOM_ID: c1\n"
+            ":DATE: 1888\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "TOREAD CP")
+    (let ((cand '(:identifier "scanY" :olid nil :imagecount 0)) (offered nil))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t))
+                ((symbol-function 'org-reading-list-ia--offer-download)
+                 (lambda () (setq offered t))))
+        (org-reading-list-ia--attach-edition cand))
+      (should offered)
+      (should (equal (org-entry-get nil "IA") "scanY")))))
+
+(ert-deftest org-reading-list-ia-test-add-edition-offers-download ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD Src :tag:\n:PROPERTIES:\n"
+            ":CUSTOM_ID: src1\n:AUTHOR: Doe, Jane\n:TITLE: A Book\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "TOREAD Src")
+    (let ((org-reading-list-headline "Books")
+          (cand '(:identifier "scanX" :title "A Book" :year "1900"))
+          (offered nil))
+      (cl-letf (((symbol-function 'org-reading-list-ia--offer-download)
+                 (lambda () (setq offered t))))
+        (org-reading-list-ia--add-edition cand))
+      (should offered))))
+
+
 
 
 
