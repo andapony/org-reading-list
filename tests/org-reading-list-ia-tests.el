@@ -453,7 +453,6 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
     (let ((entries (org-reading-list-ia--scan-headings)))
       (should (equal (plist-get (car entries) :ia) "scan1")))))
 
-
 (ert-deftest org-reading-list-ia-test-report-rows-superseded ()
   (let ((entries (list
                   '(:pos 1 :citekey "soule1966" :title "The Annals"
@@ -704,6 +703,8 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
     (should (org-reading-list-ia--yes-default-p "x ")))
   (cl-letf (((symbol-function 'read-char-choice) (lambda (&rest _) ?y)))
     (should (org-reading-list-ia--yes-default-p "x ")))
+  (cl-letf (((symbol-function 'read-char-choice) (lambda (&rest _) ?\s)))
+    (should (org-reading-list-ia--yes-default-p "x ")))
   (cl-letf (((symbol-function 'read-char-choice) (lambda (&rest _) ?n)))
     (should-not (org-reading-list-ia--yes-default-p "x "))))
 
@@ -768,13 +769,6 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
                  (lambda () (setq offered t))))
         (org-reading-list-ia--add-edition cand))
       (should offered))))
-
-
-
-
-
-
-
 
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here

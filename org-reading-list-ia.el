@@ -398,7 +398,6 @@ Otherwise add ROW as a new edition, on confirmation."
 (defvar-local org-reading-list-ia--to-download-source nil
   "Buffer the to-download report was generated from, for re-running.")
 
-
 (defun org-reading-list-ia--pick ()
   "Add the edition on the current candidate-table line."
   (interactive)
@@ -524,7 +523,6 @@ or absent."
        (and ia (not (string-empty-p ia))
             (or (null lf) (string-empty-p lf)))))
    entries))
-
 
 (defun org-reading-list-ia--report-rows (entries)
   "Build worklist rows from ENTRIES.
@@ -734,12 +732,6 @@ yes, run `org-reading-list-download-pdf'.  Do nothing otherwise."
     (when (and ia (not (string-empty-p ia))
                (org-reading-list-ia--yes-default-p "Download the PDF now? "))
       (org-reading-list-download-pdf))))
-
-
-
-
-
-
 
 (provide 'org-reading-list-ia)
 ;;; org-reading-list-ia.el ends here
