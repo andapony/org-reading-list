@@ -70,36 +70,36 @@ treating them as the book's actual identifiers.)
 
 * Property reference
 
-| Property   | Req | Format                                   | Example                          |
-|------------+-----+------------------------------------------+----------------------------------|
-| CUSTOM_ID  | yes | surname slug + year, ASCII lowercase     | =lotchin1997=, =lotchin1997a=    |
-| BTYPE      | yes | BibTeX entry type, normally =book=       | =book=                           |
-| AUTHOR     | yes | inverted, =" and "=-joined (BibTeX)      | =Lotchin, Roger W. and Issel, William= |
-| EDITOR     | no  | same format as AUTHOR                    | =Senkewicz, Robert M.=           |
-| TITLE      | yes | Title: Subtitle (sentence punctuation stripped) | =Imperial San Francisco: Urban Power, Earthly Ruin= |
-| ADDRESS    | no  | place of publication (first if several)  | =Berkeley=                       |
-| PUBLISHER  | no  | publisher name, articles intact          | =University of California Press= |
-| DATE       | yes | =YYYY= or =YYYY-MM= (ISO/EDTF subset)    | =1997=                           |
-| ORIGDATE   | no  | year of first publication, for reprints/facsimiles | =1855=                 |
-| EDITION    | no  | edition statement as printed             | =2nd ed., rev.=                  |
-| SERIES     | no  | series title (+ number)                  | =Western Urban History Series ; 2= |
-| PAGES      | no  | total pages, plain number preferred      | =406= (or MARC collation =xx, 406 p.=) |
-| ISBN       | no  | ISBN-13 preferred; extras comma-separated, first canonical | =9780252066313= |
-| LCCN       | no  | LoC control number, as printed           | =96049122=                       |
-| OCLC       | no  | OCLC number, =(OCoLC)= prefix stripped   | =35896678=                       |
-| OLID       | no  | Open Library edition id (the pre-ISBN handle) | =OL5851208M=               |
-| IA         | no  | Internet Archive item identifier         | =mountainsandmol00marrgoog=      |
-| LCC        | no  | LC classification/call number            | =F869.S357 L67 1997=             |
-| DDC        | no  | Dewey classification (keep prime marks)  | =979.4/61=                       |
-| HOLDINGS   | no  | =";"=-separated codes, optional parenthetical note | =OWN (hardcover); SFPL; MILIB= |
-| CALLNO     | no  | local shelf number(s): =CODE number=, =";"=-separated | =MILIB 979.461 L88; SFPL 979.461 L88= |
-| LOCALFILE     | no  | Org file link to a local copy (PDF etc.) | =[[file:~/org/reading-list-pdfs/marryat1962.pdf]]= |
-| SUPERSEDED_BY | no  | Org cite-link to the preferred edition   | =[[#marryat1855]]=               |
-| ADDED      | yes | inactive Org timestamp                   | =[2026-06-10 Wed]=               |
-| FOUND      | no  | URL, Org link, or free text provenance   | =https://…= or =rec. from C. Karr= |
-| URL        | no  | canonical link for the work itself       | publisher or Open Library page   |
-| ABSTRACT   | no  | summary/annotation, free text (MARC 520) | =Sketches of early San Francisco.= |
-| COVERS     | no  | period the book treats (v1 legacy)       | =1849-1856=                      |
+| Property      | Req | Format                                                     | Example                                             |
+|---------------+-----+------------------------------------------------------------+-----------------------------------------------------|
+| CUSTOM_ID     | yes | surname slug + year, ASCII lowercase                       | =lotchin1997=, =lotchin1997a=                       |
+| BTYPE         | yes | BibTeX entry type, normally =book=                         | =book=                                              |
+| AUTHOR        | yes | inverted, =" and "=-joined (BibTeX)                        | =Lotchin, Roger W. and Issel, William=              |
+| EDITOR        | no  | same format as AUTHOR                                      | =Senkewicz, Robert M.=                              |
+| TITLE         | yes | Title: Subtitle (sentence punctuation stripped)            | =Imperial San Francisco: Urban Power, Earthly Ruin= |
+| ADDRESS       | no  | place of publication (first if several)                    | =Berkeley=                                          |
+| PUBLISHER     | no  | publisher name, articles intact                            | =University of California Press=                    |
+| DATE          | yes | =YYYY= or =YYYY-MM= (ISO/EDTF subset)                      | =1997=                                              |
+| ORIGDATE      | no  | year of first publication, for reprints/facsimiles         | =1855=                                              |
+| EDITION       | no  | edition statement as printed                               | =2nd ed., rev.=                                     |
+| SERIES        | no  | series title (+ number)                                    | =Western Urban History Series ; 2=                  |
+| PAGES         | no  | total pages, plain number preferred                        | =406= (or MARC collation =xx, 406 p.=)              |
+| ISBN          | no  | ISBN-13 preferred; extras comma-separated, first canonical | =9780252066313=                                     |
+| LCCN          | no  | LoC control number, as printed                             | =96049122=                                          |
+| OCLC          | no  | OCLC number, =(OCoLC)= prefix stripped                     | =35896678=                                          |
+| OLID          | no  | Open Library edition id (the pre-ISBN handle)              | =OL5851208M=                                        |
+| IA            | no  | Internet Archive item identifier                           | =mountainsandmol00marrgoog=                         |
+| LCC           | no  | LC classification/call number                              | =F869.S357 L67 1997=                                |
+| DDC           | no  | Dewey classification (keep prime marks)                    | =979.4/61=                                          |
+| HOLDINGS      | no  | =";"=-separated codes, optional parenthetical note         | =OWN (hardcover); SFPL; MILIB=                      |
+| CALLNO        | no  | local shelf number(s): =CODE number=, =";"=-separated      | =MILIB 979.461 L88; SFPL 979.461 L88=               |
+| LOCALFILE     | no  | Org file link to a local copy (PDF etc.)                   | =[[file:~/org/reading-list-pdfs/marryat1962.pdf]]=  |
+| SUPERSEDED_BY | no  | Org cite-link to the preferred edition                     | =[[#marryat1855]]=                                  |
+| ADDED         | yes | inactive Org timestamp                                     | =[2026-06-10 Wed]=                                  |
+| FOUND         | no  | URL, Org link, or free text provenance                     | =https://…= or =rec. from C. Karr=                  |
+| URL           | no  | canonical link for the work itself                         | publisher or Open Library page                      |
+| ABSTRACT      | no  | summary/annotation, free text (MARC 520)                   | =Sketches of early San Francisco.=                  |
+| COVERS        | no  | period the book treats (v1 legacy)                         | =1849-1856=                                         |
 
 Notes on the subtle ones:
 

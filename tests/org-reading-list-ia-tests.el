@@ -6,7 +6,6 @@
 
 (require 'cl-lib)
 
-
 (ert-deftest org-reading-list-ia-test-title-tokens ()
   (should (equal (org-reading-list-ia--title-tokens
                   "Reminiscences and Incidents of Early Days")
@@ -472,10 +471,6 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
                  (lambda (fmt &rest args) (setq msg (apply #'format fmt args)))))
         (org-reading-list-ia--report))
       (should (string-match-p "1 superseded" msg)))))
-
-
-
-
 
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here

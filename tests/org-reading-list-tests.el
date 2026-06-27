@@ -235,7 +235,6 @@
       (goto-char (point-min)) (re-search-forward "^\\* TOREAD A")
       (should (equal (org-get-tags nil t) '("gold_rush"))))))
 
-
 (ert-deftest org-reading-list-test-preen-infer-hook ()
   (org-reading-list-test--with-list
    (goto-char (point-min))
@@ -298,7 +297,6 @@
                  "soule1855"))
   (should (equal (org-reading-list--citekey-base "Lotchin, Roger W." "1997")
                  "lotchin1997")))
-
 
 (ert-deftest org-reading-list-test-citekey-unique-suffixing ()
   (should (equal (org-reading-list--citekey-unique
@@ -530,7 +528,6 @@ DDC-nil case.")
          (data (org-reading-list--marc-entry-data (list rec) "MI" nil)))
     (should (equal (plist-get data :subjects) '("alpha" "beta" "gamma")))
     (should (= (length (plist-get data :tags)) 2))))
-
 
 (defconst org-reading-list-test--loc-kemble
   '(record nil
@@ -1009,7 +1006,6 @@ DDC-nil case.")
     (goto-char (point-min))
     (should (re-search-forward "^# End:$" nil t))))
 
-
 (ert-deftest org-reading-list-test-insert-creates-headline ()
   (with-temp-buffer
     (org-mode)
@@ -1446,18 +1442,6 @@ BODY may reference `file', the temp file's path."
           (should (member "california" s))
           (should (member "twelve_step_programs" s)))))))
 
-
-
-
-
-
-
-
-
-
-
-
-
 (ert-deftest org-reading-list-test-entry-label ()
   "Label is \"Surname, Title (Year)\", degrading on missing parts."
   (should (equal (org-reading-list--entry-label
@@ -1641,8 +1625,6 @@ BODY may reference `file', the temp file's path."
     (re-search-forward "^\\*\\* B")
     (should (null (org-entry-get nil "SUPERSEDED_BY")))
     (should (commandp 'org-reading-list-supersede))))
-
-
 
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here
