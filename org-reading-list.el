@@ -280,8 +280,11 @@ Refine to YYYY-MM by hand when finer precision is known."
 ;;;; Cite keys
 
 (defun org-reading-list--slug (s)
-  "Downcase S and strip everything but ASCII letters and digits."
-  (replace-regexp-in-string "[^a-z0-9]" "" (downcase s)))
+  "Downcase S and strip everything but ASCII letters and digits.
+S is NFD-normalized first, so an accented letter reduces to its base
+letter (e.g. \"Soulé\" -> \"soule\") regardless of NFC/NFD encoding."
+  (replace-regexp-in-string "[^a-z0-9]" ""
+                            (downcase (ucs-normalize-NFD-string s))))
 
 (defun org-reading-list--existing-citekeys ()
   "Collect :CUSTOM_ID: values already in `org-reading-list-file'."
@@ -872,8 +875,8 @@ Signal a `user-error' if neither source has a record."
 Return, in buffer order, one plist per heading with keys :pos (start
 of the heading line), :heading (text sans TODO keyword, priority, tags,
 and comment), :isbns (the :ISBN: property split on commas/spaces,
-hyphens stripped), :olid, :title, and :author.  Headings without these
-properties yield nil fields and never match anything."
+hyphens stripped), :olid, :title, :author, and :custom-id.  Headings
+without these properties yield nil fields and never match anything."
   (let (entries)
     (save-excursion
       (goto-char (point-min))
@@ -889,7 +892,8 @@ properties yield nil fields and never match anything."
                                    (split-string isbn "[, ]" t)))
                       :olid (org-entry-get nil "OLID")
                       :title (org-entry-get nil "TITLE")
-                      :author (org-entry-get nil "AUTHOR"))
+                      :author (org-entry-get nil "AUTHOR")
+                      :custom-id (org-entry-get nil "CUSTOM_ID"))
                 entries))))
     (nreverse entries)))
 
@@ -910,13 +914,15 @@ AUTHOR is in inverted \"Surname, Given\" form."
   "Find an entry among ENTRIES that DATA likely duplicates.
 DATA is a plist from `org-reading-list--entry-data'; ENTRIES is from
 `org-reading-list--scan-entries'.  Return (exact . ENTRY) when any
-fetched ISBN or the OLID matches, (similar . ENTRY) when both the
-slugged main title and author surname match, nil otherwise.  Exact
-wins over similar; similar requires an author on both sides, so
-year, subtitle, and publisher differences alone do not defeat it."
+fetched ISBN, the OLID, or the :custom-id cite key matches,
+\(similar . ENTRY) when both the slugged main title and author surname
+match, nil otherwise.  Exact wins over similar; similar requires an
+author on both sides, so year, subtitle, and publisher differences
+alone do not defeat it."
   (let* ((isbns (plist-get data :isbns))
          (props (plist-get data :props))
          (olid (cdr (assoc "OLID" props)))
+         (cid (plist-get data :custom-id))
          (title-key (org-reading-list--dup-title-key
                      (plist-get data :title)))
          (surname-key (org-reading-list--dup-surname-key
@@ -924,7 +930,8 @@ year, subtitle, and publisher differences alone do not defeat it."
     (or (let ((hit (seq-find
                     (lambda (e)
                       (or (seq-intersection isbns (plist-get e :isbns))
-                          (and olid (equal olid (plist-get e :olid)))))
+                          (and olid (equal olid (plist-get e :olid)))
+                          (and cid (equal cid (plist-get e :custom-id)))))
                     entries)))
           (and hit (cons 'exact hit)))
         (and title-key surname-key
@@ -966,14 +973,15 @@ the last entry's subtree) is dropped, and trailing whitespace trimmed."
 
 (defun org-reading-list--entry-dup-data ()
   "Return duplicate-check data for the entry at point.
-A plist with :isbns (hyphens stripped), :title, and :props (an alist
-holding \"OLID\" and \"AUTHOR\"), shaped for the DATA argument of
-`org-reading-list--duplicate-in-file'."
+A plist with :isbns (hyphens stripped), :title, :custom-id, and
+:props (an alist holding \"OLID\" and \"AUTHOR\"), shaped for the DATA
+argument of `org-reading-list--duplicate-in-file'."
   (let ((isbn (org-entry-get nil "ISBN")))
     (list :isbns (and isbn
                       (mapcar (lambda (s) (replace-regexp-in-string "-" "" s))
                               (split-string isbn "[, ]" t)))
           :title (org-entry-get nil "TITLE")
+          :custom-id (org-entry-get nil "CUSTOM_ID")
           :props (list (cons "OLID" (org-entry-get nil "OLID"))
                        (cons "AUTHOR" (org-entry-get nil "AUTHOR"))))))
 
@@ -1100,7 +1108,7 @@ interactively, skipping duplicates."
   "Ask whether to insert despite DUP, a (TYPE . ENTRY) pair.
 Return non-nil to insert anyway."
   (y-or-n-p (format (if (eq (car dup) 'exact)
-                        "Already in list as %S (ISBN match) — add anyway? "
+                        "Already in list as %S (identifier match) — add anyway? "
                       "Possibly already in list as %S (title/author match) — add anyway? ")
                     (plist-get (cdr dup) :heading))))
 

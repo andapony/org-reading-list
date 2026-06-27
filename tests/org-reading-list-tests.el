@@ -1656,6 +1656,7 @@ BODY may reference `file', the temp file's path."
       (should (equal (plist-get data :isbns) '("9780252066313")))
       (should (equal (plist-get data :title) "One: A Tale"))
       (should (equal (cdr (assoc "AUTHOR" (plist-get data :props))) "Smith, Ann"))
+      (should (equal (plist-get data :custom-id) "a1"))
       ;; --find-duplicate detects a same-ISBN match using this data shape.
       (let ((entries (list (list :isbns '("9780252066313") :title "Whatever"
                                  :author "Other, X" :heading "X"))))
@@ -1825,6 +1826,75 @@ BODY may reference `file', the temp file's path."
           (with-current-buffer b (set-buffer-modified-p nil))
           (kill-buffer b))
         (delete-file f)))))
+
+(ert-deftest org-reading-list-test-slug-accents ()
+  ;; Same letter, NFC vs NFD encoding, must slug identically.
+  (should (equal (org-reading-list--slug "Soulé") "soule"))
+  (should (equal (org-reading-list--slug (ucs-normalize-NFD-string "Soulé"))
+                 "soule")))
+
+(ert-deftest org-reading-list-test-find-dup-accent-normalization ()
+  ;; NFC author in DATA vs NFD author in the entry still similar-matches.
+  (let ((data (list :title "The Annals of San Francisco" :isbns nil
+                    :props (list (cons "AUTHOR" "Soulé, Frank"))))
+        (entries (list (list :title "The Annals of San Francisco"
+                             :author (ucs-normalize-NFD-string "Soulé, Frank")
+                             :heading "Annals"))))
+    (should (eq (car (org-reading-list--find-duplicate data entries)) 'similar))))
+
+(ert-deftest org-reading-list-test-find-dup-custom-id ()
+  ;; An author-less, ISBN-less entry with a matching :custom-id is a duplicate.
+  (let ((data (list :title "Hart v. Burnett" :isbns nil
+                    :custom-id "hartvburnett1860"
+                    :props (list (cons "AUTHOR" nil))))
+        (entries (list (list :title "Hart v. Burnett" :author nil
+                             :custom-id "hartvburnett1860" :heading "Hart"))))
+    (should (eq (car (org-reading-list--find-duplicate data entries)) 'exact))))
+
+(ert-deftest org-reading-list-test-scan-entries-custom-id ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD A\n:PROPERTIES:\n:CUSTOM_ID: a1\n:TITLE: A\n:END:\n")
+    (let ((es (org-reading-list--scan-entries)))
+      (should (equal (plist-get (nth 1 es) :custom-id) "a1")))))
+
+(ert-deftest org-reading-list-test-import-bulk-skips-accent-and-keyless-dups ()
+  (let ((dest-f (make-temp-file "rldest" nil ".org"))
+        (src-f (make-temp-file "rlsrc" nil ".org")))
+    (unwind-protect
+        (let ((org-reading-list-file dest-f)
+              (org-reading-list-headline "Books"))
+          ;; Dest: Annals with NFD author + OLID; Hart (no author), key h1860.
+          (with-temp-file dest-f
+            (insert "* Books\n"
+                    "** TOREAD The Annals of San Francisco\n:PROPERTIES:\n"
+                    ":CUSTOM_ID: soule1855\n:TITLE: The Annals of San Francisco\n"
+                    ":AUTHOR: " (ucs-normalize-NFD-string "Soulé, Frank") "\n"
+                    ":OLID: OL13993482M\n:END:\n"
+                    "** TOREAD Hart v. Burnett\n:PROPERTIES:\n:CUSTOM_ID: h1860\n"
+                    ":TITLE: Hart v. Burnett\n:BTYPE: misc\n:END:\n"))
+          ;; Source: Annals with NFC author, no OLID; same Hart.
+          (with-temp-file src-f
+            (insert "* Books\n"
+                    "** TOREAD The Annals of San Francisco\n:PROPERTIES:\n"
+                    ":CUSTOM_ID: soule1855\n:TITLE: The Annals of San Francisco\n"
+                    ":AUTHOR: Soulé, Frank\n:END:\n"
+                    "** TOREAD Hart v. Burnett\n:PROPERTIES:\n:CUSTOM_ID: h1860\n"
+                    ":TITLE: Hart v. Burnett\n:BTYPE: misc\n:END:\n"))
+          (let (msg)
+            (cl-letf (((symbol-function 'message)
+                       (lambda (fmt &rest a) (setq msg (apply #'format fmt a)))))
+              (with-current-buffer (find-file-noselect src-f)
+                (goto-char (point-min))
+                (org-reading-list-import t)))
+            ;; Both are recognised as duplicates → nothing imported.
+            (should (string-match-p "Imported 0, skipped 2" msg))))
+      (delete-file dest-f) (delete-file src-f))))
+
+
+
+
+
 
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here
