@@ -4,7 +4,7 @@
 
 ;; Author: Rob Duncan
 ;; URL: https://github.com/andapony/org-reading-list
-;; Version: 0.10.0
+;; Version: 0.11.0
 ;; Package-Requires: ((emacs "28.1") (org "9.4"))
 ;; Keywords: bib, outlines
 ;; SPDX-License-Identifier: GPL-3.0-or-later
