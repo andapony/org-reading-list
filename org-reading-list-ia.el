@@ -715,6 +715,24 @@ RET on a row downloads that entry's PDF; `g' refreshes; `q' quits."
     (message "%d entries have an IA scan but no local copy" (length rows))
     (pop-to-buffer buf)))
 
+(defun org-reading-list-ia--yes-default-p (prompt)
+  "Ask PROMPT; RET, `y', or space means yes and `n' means no.
+Return non-nil for yes, so RET defaults to yes."
+  (let ((c (read-char-choice (concat prompt "(Y/n) ")
+                             '(?y ?Y ?n ?N ?\r ?\n ?\s))))
+    (not (memq c '(?n ?N)))))
+
+(defun org-reading-list-ia--offer-download ()
+  "Offer to download the PDF for the entry at point.
+When the entry has a non-empty :IA:, ask (RET defaults to yes) and, on
+yes, run `org-reading-list-download-pdf'.  Do nothing otherwise."
+  (let ((ia (org-entry-get nil "IA")))
+    (when (and ia (not (string-empty-p ia))
+               (org-reading-list-ia--yes-default-p "Download the PDF now? "))
+      (org-reading-list-download-pdf))))
+
+
+
 
 
 

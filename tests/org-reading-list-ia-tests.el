@@ -691,6 +691,48 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
           (org-reading-list-ia--to-download-at-point))
         (should (equal downloaded "a1"))))))
 
+(ert-deftest org-reading-list-ia-test-yes-default-p ()
+  (cl-letf (((symbol-function 'read-char-choice) (lambda (&rest _) ?\r)))
+    (should (org-reading-list-ia--yes-default-p "x ")))
+  (cl-letf (((symbol-function 'read-char-choice) (lambda (&rest _) ?y)))
+    (should (org-reading-list-ia--yes-default-p "x ")))
+  (cl-letf (((symbol-function 'read-char-choice) (lambda (&rest _) ?n)))
+    (should-not (org-reading-list-ia--yes-default-p "x "))))
+
+(ert-deftest org-reading-list-ia-test-offer-download ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD A\n:PROPERTIES:\n:CUSTOM_ID: a1\n"
+            ":IA: scanA\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "TOREAD A")
+    (let (ran)
+      (cl-letf (((symbol-function 'org-reading-list-download-pdf)
+                 (lambda () (setq ran t))))
+        (cl-letf (((symbol-function 'org-reading-list-ia--yes-default-p)
+                   (lambda (&rest _) t)))
+          (org-reading-list-ia--offer-download))
+        (should ran)
+        (setq ran nil)
+        (cl-letf (((symbol-function 'org-reading-list-ia--yes-default-p)
+                   (lambda (&rest _) nil)))
+          (org-reading-list-ia--offer-download))
+        (should-not ran))))
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD B\n:PROPERTIES:\n:CUSTOM_ID: b1\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "TOREAD B")
+    (let (asked)
+      (cl-letf (((symbol-function 'org-reading-list-ia--yes-default-p)
+                 (lambda (&rest _) (setq asked t) t))
+                ((symbol-function 'org-reading-list-download-pdf)
+                 (lambda () (error "should not download"))))
+        (org-reading-list-ia--offer-download)
+        (should-not asked)))))
+
+
+
 
 
 
