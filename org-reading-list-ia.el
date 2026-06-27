@@ -388,6 +388,10 @@ Otherwise add ROW as a new edition, on confirmation."
 (defvar-local org-reading-list-ia--return-buffer nil
   "Buffer to switch to when the candidate buffer is quit, or nil.")
 
+(defvar-local org-reading-list-ia--report-source nil
+  "Buffer the discovery report was generated from, for re-running.")
+
+
 
 (defun org-reading-list-ia--pick ()
   "Add the edition on the current candidate-table line."
@@ -562,6 +566,15 @@ reported while probing.  Return a plist (:rows ROWS :checked M
          ("Open scan" 10 nil) ("IA id" 22 nil)])
   (tabulated-list-init-header))
 
+(defun org-reading-list-ia--report-revert (&rest _)
+  "Re-run IA discovery from the report's source buffer.
+Bound as the report buffer's `revert-buffer-function', so `g' refreshes."
+  (let ((src org-reading-list-ia--report-source))
+    (if (buffer-live-p src)
+        (with-current-buffer src (org-reading-list-ia--report))
+      (user-error "Report source is gone; re-run from the reading list"))))
+
+
 (defun org-reading-list-ia--report ()
   "Report un-scanned entries that have an open scan available on IA."
   (let* ((src (current-buffer))
@@ -576,6 +589,9 @@ reported while probing.  Return a plist (:rows ROWS :checked M
          (buf (get-buffer-create "*IA discovery report*")))
     (with-current-buffer buf
       (org-reading-list-ia-report-mode)
+      (setq-local org-reading-list-ia--report-source src)
+      (setq-local revert-buffer-function
+                  #'org-reading-list-ia--report-revert)
       (setq org-reading-list-ia--rows rows
             tabulated-list-entries
             (let ((i 0))

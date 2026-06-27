@@ -597,5 +597,22 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
                (lambda (m) (string-match-p "Searching the Internet Archive" m))
                msgs)))))
 
+(ert-deftest org-reading-list-ia-test-report-sets-revert ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n")
+    (let ((src (current-buffer)))
+      (cl-letf (((symbol-function 'org-reading-list-ia--report-rows)
+                 (lambda (&rest _) (list :rows nil :checked 0 :have-copy 0
+                                         :superseded 0 :errors nil)))
+                ((symbol-function 'pop-to-buffer) (lambda (&rest _) nil)))
+        (org-reading-list-ia--report))
+      (with-current-buffer "*IA discovery report*"
+        (should (eq org-reading-list-ia--report-source src))
+        (should (eq revert-buffer-function
+                    #'org-reading-list-ia--report-revert)))
+      (kill-buffer "*IA discovery report*"))))
+
+
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here
