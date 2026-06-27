@@ -1765,13 +1765,66 @@ BODY may reference `file', the temp file's path."
             (should (re-search-forward "^\\*\\* TOREAD New" nil t))))
       (delete-file dest-f) (delete-file src-f))))
 
+(ert-deftest org-reading-list-test-import-command-decline-jumps ()
+  "Declining an import duplicate inserts nothing and jumps to existing entry."
+  (let ((dest-f (make-temp-file "rldest" nil ".org"))
+        (src-f (make-temp-file "rlsrc" nil ".org")))
+    (unwind-protect
+        (let ((org-reading-list-file dest-f)
+              (org-reading-list-headline "Books"))
+          (with-temp-file dest-f
+            (insert "* Books\n** TOREAD Dup Book\n:PROPERTIES:\n:CUSTOM_ID: dup1a\n"
+                    ":TITLE: Dup Book\n:AUTHOR: Dup, A\n:ISBN: 0001002003\n:END:\n"))
+          (with-temp-file src-f
+            (insert "* Books\n** TOREAD Dup Book\n:PROPERTIES:\n:CUSTOM_ID: dup1a\n"
+                    ":TITLE: Dup Book\n:AUTHOR: Dup, A\n:ISBN: 0001002003\n:END:\n"))
+          ;; Decline the duplicate confirmation prompt.
+          (with-current-buffer (find-file-noselect src-f)
+            (goto-char (point-min))
+            (re-search-forward "^\\*\\* TOREAD Dup Book")
+            (cl-letf (((symbol-function 'y-or-n-p) (lambda (_) nil)))
+              (org-reading-list-import)))
+          ;; No new entry inserted — destination still has exactly one heading.
+          (with-current-buffer (find-file-noselect dest-f)
+            (should (= 1 (count-matches "TOREAD" (point-min) (point-max))))
+            ;; Point ended up on the existing entry.
+            (should (looking-at-p "\\*\\* TOREAD Dup Book"))))
+      (dolist (f (list dest-f src-f))
+        (when-let* ((b (get-file-buffer f)))
+          (with-current-buffer b (set-buffer-modified-p nil))
+          (kill-buffer b))
+        (delete-file f)))))
 
-
-
-
-
-
-
+(ert-deftest org-reading-list-test-import-command-bulk-intra-source-dedup ()
+  "Bulk import: the second of two same-title-author entries is skipped as a dup."
+  (let ((dest-f (make-temp-file "rldest" nil ".org"))
+        (src-f (make-temp-file "rlsrc" nil ".org")))
+    (unwind-protect
+        (let ((org-reading-list-file dest-f)
+              (org-reading-list-headline "Books"))
+          (with-temp-file dest-f (insert "* Books\n"))
+          (with-temp-file src-f
+            (insert "* Books\n"
+                    "** TOREAD Dup Book\n:PROPERTIES:\n:CUSTOM_ID: dup1a\n"
+                    ":TITLE: Dup Book\n:AUTHOR: Dup, A\n:END:\n"
+                    "** TOREAD Dup Book\n:PROPERTIES:\n:CUSTOM_ID: dup1b\n"
+                    ":TITLE: Dup Book\n:AUTHOR: Dup, A\n:END:\n"))
+          (let (msg)
+            (cl-letf (((symbol-function 'message)
+                       (lambda (fmt &rest a) (setq msg (apply #'format fmt a)))))
+              (with-current-buffer (find-file-noselect src-f)
+                (goto-char (point-min))
+                (org-reading-list-import t)))
+            ;; Only one entry landed in the destination.
+            (with-current-buffer (find-file-noselect dest-f)
+              (should (= 1 (count-matches "TOREAD Dup Book" (point-min) (point-max)))))
+            ;; Report reflects the intra-source dedup.
+            (should (string-match-p "Imported 1, skipped 1" msg))))
+      (dolist (f (list dest-f src-f))
+        (when-let* ((b (get-file-buffer f)))
+          (with-current-buffer b (set-buffer-modified-p nil))
+          (kill-buffer b))
+        (delete-file f)))))
 
 (provide 'org-reading-list-tests)
 ;;; org-reading-list-tests.el ends here

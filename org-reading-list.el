@@ -747,25 +747,6 @@ read.  Entries without :SUBJECTS: are skipped."
           (message "Preened: %s"
                    (or (string-join (org-get-tags nil t) " ") "none"))))))))
 
-;;;###autoload
-(defun org-reading-list-import (&optional all)
-  "Import reading-list entries from the current buffer into the main list.
-Copy the entry at point into `org-reading-list-file' (re-stamping :ADDED:
-and :FOUND:, keeping the cite key unless it collides), then display it.
-With a prefix argument ALL, import every entry under
-`org-reading-list-headline' in the current buffer instead, non-
-interactively, skipping duplicates."
-  (interactive "P")
-  (when (and buffer-file-name
-             (file-equal-p buffer-file-name org-reading-list-file))
-    (user-error "This is already the main reading list"))
-  (let ((src-name (file-name-nondirectory (or buffer-file-name (buffer-name))))
-        (dest (find-file-noselect org-reading-list-file)))
-    (if all
-        (org-reading-list--import-all src-name dest)
-      (org-reading-list--import-at-point src-name dest))))
-
-
 ;;;; Entry construction
 
 (defun org-reading-list--ol-entry-data (rec bibkey source)
@@ -998,19 +979,21 @@ holding \"OLID\" and \"AUTHOR\"), shaped for the DATA argument of
 
 (defun org-reading-list--import-entry (subtree source-name dest-buffer)
   "File SUBTREE (an Org entry string) into DEST-BUFFER and patch it.
-DEST-BUFFER is the buffer of `org-reading-list-file'.  The copy is filed
-under `org-reading-list-headline'.  Its :CUSTOM_ID: is kept (letter-
-suffixed only on collision with the destination's keys, or generated
-from author and year when the source has none); :ADDED: is re-stamped to
-today; and SOURCE-NAME is appended to :FOUND: as the import provenance
-\(set to \"imported from SOURCE-NAME\" when there was no :FOUND:).
+SUBTREE is promoted to level 1 before filing.  DEST-BUFFER is the buffer
+of `org-reading-list-file'.  The copy is filed under
+`org-reading-list-headline'.  Its :CUSTOM_ID: is kept (letter-suffixed
+only on collision with the destination's keys, or generated from author
+and year when the source has none); :ADDED: is re-stamped to today; and
+SOURCE-NAME is appended to :FOUND: as the import provenance (set to
+\"imported from SOURCE-NAME\" when there was no :FOUND:).
 Return the new entry's buffer position."
   (with-current-buffer dest-buffer
     (save-restriction
       (widen)
       (let* ((existing (org-reading-list--buffer-citekeys))
              (pos (org-reading-list--insert-under-headline
-                   subtree org-reading-list-headline)))
+                   (org-reading-list--subtree-as-toplevel subtree)
+                   org-reading-list-headline)))
         (save-excursion
           (goto-char pos)
           (let* ((src-key (org-entry-get nil "CUSTOM_ID"))
@@ -1041,8 +1024,7 @@ SRC-NAME is the source's display name.  DEST is the destination buffer."
           (widen)
           (goto-char (plist-get (cdr dup) :pos))
           (message "Already in list: %s" (plist-get (cdr dup) :heading)))
-      (let* ((subtree (org-reading-list--subtree-as-toplevel
-                       (org-reading-list--entry-subtree)))
+      (let* ((subtree (org-reading-list--entry-subtree))
              (pos (org-reading-list--import-entry subtree src-name dest)))
         (pop-to-buffer dest)
         (widen)
@@ -1051,21 +1033,25 @@ SRC-NAME is the source's display name.  DEST is the destination buffer."
 
 (defun org-reading-list--subtree-as-toplevel (subtree)
   "Return SUBTREE promoted so its outermost heading is level 1.
-Extra leading stars are stripped from every heading line.  A subtree
-already at level 1 is returned unchanged."
+Extra leading stars are stripped from heading lines only; body
+lines beginning with stars (e.g. bold text) are left untouched.
+A subtree already at level 1 is returned unchanged."
   (if (string-match "^\\(\\*+\\)" subtree)
       (let ((extra (1- (length (match-string 1 subtree)))))
         (if (> extra 0)
             (replace-regexp-in-string
-             (format "^\\*\\{%d\\}" extra) "" subtree)
+             (format "^\\*\\{%d\\}\\(\\** \\)" extra) "\\1" subtree)
           subtree))
     subtree))
 
 
 (defun org-reading-list--import-all (src-name dest)
-  "Import every keyed entry under the Books headline into DEST.
-SRC-NAME is the source's display name; DEST is the destination buffer.
-Duplicates are skipped silently; a summary is reported."
+  "Import every keyed direct child of the Books headline into DEST.
+Only entries at depth Books-level+1 are considered; deeper descendants
+\(keyed children of children) are skipped to avoid double-importing
+content already contained in a parent subtree.  SRC-NAME is the
+source's display name; DEST is the destination buffer.  Duplicates are
+skipped silently; a summary is reported."
   (let ((imported 0) (skipped 0) (total 0))
     (save-excursion
       (goto-char (point-min))
@@ -1073,26 +1059,40 @@ Duplicates are skipped silently; a summary is reported."
              (format "^\\*+[ \t]+%s[ \t]*$"
                      (regexp-quote org-reading-list-headline))
              nil t)
-        (org-map-entries
-         (lambda ()
-           (when (org-entry-get nil "CUSTOM_ID")
-             (setq total (1+ total))
-             (if (org-reading-list--duplicate-in-file
-                  (org-reading-list--entry-dup-data))
-                 (setq skipped (1+ skipped))
-               (org-reading-list--import-entry
-                (org-reading-list--subtree-as-toplevel
-                 (org-reading-list--entry-subtree))
-                src-name dest)
-               (setq imported (1+ imported)))))
-         nil 'tree)))
+        (let ((books-level (org-current-level)))
+          (org-map-entries
+           (lambda ()
+             (when (and (= (org-current-level) (1+ books-level))
+                        (org-entry-get nil "CUSTOM_ID"))
+               (setq total (1+ total))
+               (if (org-reading-list--duplicate-in-file
+                    (org-reading-list--entry-dup-data))
+                   (setq skipped (1+ skipped))
+                 (org-reading-list--import-entry
+                  (org-reading-list--entry-subtree)
+                  src-name dest)
+                 (setq imported (1+ imported)))))
+           nil 'tree))))
     (message "Imported %d, skipped %d duplicates (%d entries in source)"
              imported skipped total)))
 
-
-
-
-
+;;;###autoload
+(defun org-reading-list-import (&optional all)
+  "Import reading-list entries from the current buffer into the main list.
+Copy the entry at point into `org-reading-list-file' (re-stamping :ADDED:
+and :FOUND:, keeping the cite key unless it collides), then display it.
+With a prefix argument ALL, import every entry under
+`org-reading-list-headline' in the current buffer instead, non-
+interactively, skipping duplicates."
+  (interactive "P")
+  (when (and buffer-file-name
+             (file-equal-p buffer-file-name org-reading-list-file))
+    (user-error "This is already the main reading list"))
+  (let ((src-name (file-name-nondirectory (or buffer-file-name (buffer-name))))
+        (dest (find-file-noselect org-reading-list-file)))
+    (if all
+        (org-reading-list--import-all src-name dest)
+      (org-reading-list--import-at-point src-name dest))))
 
 (define-error 'org-reading-list-duplicate "Book already in reading list")
 
