@@ -977,6 +977,41 @@ holding \"OLID\" and \"AUTHOR\"), shaped for the DATA argument of
           :props (list (cons "OLID" (org-entry-get nil "OLID"))
                        (cons "AUTHOR" (org-entry-get nil "AUTHOR"))))))
 
+(defun org-reading-list--import-entry (subtree source-name dest-buffer)
+  "File SUBTREE (an Org entry string) into DEST-BUFFER and patch it.
+DEST-BUFFER is the buffer of `org-reading-list-file'.  The copy is filed
+under `org-reading-list-headline'.  Its :CUSTOM_ID: is kept (letter-
+suffixed only on collision with the destination's keys, or generated
+from author and year when the source has none); :ADDED: is re-stamped to
+today; and SOURCE-NAME is appended to :FOUND: as the import provenance
+\(set to \"imported from SOURCE-NAME\" when there was no :FOUND:).
+Return the new entry's buffer position."
+  (with-current-buffer dest-buffer
+    (save-restriction
+      (widen)
+      (let* ((existing (org-reading-list--buffer-citekeys))
+             (pos (org-reading-list--insert-under-headline
+                   subtree org-reading-list-headline)))
+        (save-excursion
+          (goto-char pos)
+          (let* ((src-key (org-entry-get nil "CUSTOM_ID"))
+                 (new-key (org-reading-list--citekey-unique
+                           (or src-key
+                               (org-reading-list--citekey-base
+                                (org-entry-get nil "AUTHOR")
+                                (org-entry-get nil "DATE")))
+                           existing))
+                 (found (org-entry-get nil "FOUND"))
+                 (note (format "imported from %s" source-name)))
+            (org-entry-put nil "CUSTOM_ID" new-key)
+            (org-entry-put nil "ADDED" (format-time-string "[%Y-%m-%d %a]"))
+            (org-entry-put nil "FOUND"
+                           (if (and found (not (string-empty-p found)))
+                               (concat found "; " note)
+                             note))))
+        pos))))
+
+
 
 
 (define-error 'org-reading-list-duplicate "Book already in reading list")

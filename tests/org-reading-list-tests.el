@@ -1662,6 +1662,54 @@ BODY may reference `file', the temp file's path."
         (should (eq (car (org-reading-list--find-duplicate data entries))
                     'exact))))))
 
+(ert-deftest org-reading-list-test-import-entry-core ()
+  (let ((org-reading-list-headline "Books"))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Books\n** TOREAD Existing\n:PROPERTIES:\n:CUSTOM_ID: smith1900\n:END:\n")
+      (let* ((dest (current-buffer))
+             (subtree (concat "** TOREAD Imported :hist:\n:PROPERTIES:\n"
+                              ":CUSTOM_ID: jones1855\n:AUTHOR: Jones, A\n"
+                              ":TITLE: A Book\n:DATE: 1855\n"
+                              ":FOUND: rec. from C. Karr\n:ADDED: [2020-01-01 Wed]\n:END:\n"
+                              "Body note.\n"))
+             (pos (org-reading-list--import-entry subtree "old.org" dest)))
+        (goto-char pos)
+        (should (equal (org-entry-get nil "CUSTOM_ID") "jones1855"))     ; key kept (free)
+        (should (string-match-p "imported from old.org" (org-entry-get nil "FOUND")))
+        (should (string-match-p "rec. from C. Karr" (org-entry-get nil "FOUND")))
+        (should (string-match-p (format-time-string "%Y-%m-%d")
+                                (org-entry-get nil "ADDED")))           ; re-stamped today
+        (should (member "hist" (org-get-tags)))                        ; tags preserved
+        (should (string-match-p "Body note\\." (buffer-string)))))))
+
+(ert-deftest org-reading-list-test-import-entry-key-collision ()
+  (let ((org-reading-list-headline "Books"))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Books\n** TOREAD Existing\n:PROPERTIES:\n:CUSTOM_ID: jones1855\n:END:\n")
+      (let* ((dest (current-buffer))
+             (subtree (concat "** TOREAD Imported\n:PROPERTIES:\n:CUSTOM_ID: jones1855\n"
+                              ":AUTHOR: Jones, A\n:TITLE: B\n:DATE: 1855\n:END:\n"))
+             (pos (org-reading-list--import-entry subtree "old.org" dest)))
+        (goto-char pos)
+        (should (equal (org-entry-get nil "CUSTOM_ID") "jones1855a"))))))
+
+(ert-deftest org-reading-list-test-import-entry-no-found ()
+  (let ((org-reading-list-headline "Books"))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Books\n")
+      (let* ((dest (current-buffer))
+             (subtree (concat "** TOREAD New\n:PROPERTIES:\n:CUSTOM_ID: new1855\n"
+                              ":AUTHOR: New, B\n:TITLE: C\n:DATE: 1855\n:END:\n"))
+             (pos (org-reading-list--import-entry subtree "old.org" dest)))
+        (goto-char pos)
+        (should (equal (org-entry-get nil "FOUND") "imported from old.org"))))))
+
+
+
+
 
 
 (provide 'org-reading-list-tests)
