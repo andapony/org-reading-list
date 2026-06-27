@@ -140,6 +140,14 @@ Notes on the subtle ones:
   =[[#key]]= references keep resolving, but it redirects to the preferred
   edition and drops out of the IA "scans to grab" worklist. One-directional
   (only the superseded heading carries the link).
+- *Importing from another list* — =M-x org-reading-list-import= (dispatch:
+  Add → "Import from file", =I=), run with point on an entry in another
+  reading-list file, copies that entry into the main list
+  (=org-reading-list-file=): the cite key is kept (suffixed only on
+  collision), =:ADDED:= is re-stamped to today, and the source file is
+  appended to =:FOUND:=. With a prefix argument (or the dispatch =-b=
+  switch) it imports every entry in the current file, skipping
+  duplicates. The source file is left untouched and must already be v2.
 
 * Tags (subjects) and status
 
