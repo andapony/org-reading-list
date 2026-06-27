@@ -385,6 +385,10 @@ Otherwise add ROW as a new edition, on confirmation."
 (defvar-local org-reading-list-ia--origin nil
   "Marker at the entry the candidate buffer was launched from.")
 
+(defvar-local org-reading-list-ia--return-buffer nil
+  "Buffer to switch to when the candidate buffer is quit, or nil.")
+
+
 (defun org-reading-list-ia--pick ()
   "Add the edition on the current candidate-table line."
   (interactive)
@@ -406,14 +410,29 @@ Otherwise add ROW as a new edition, on confirmation."
          ("Leaves" 7 nil) ("OLID" 12 nil)])
   (tabulated-list-init-header))
 
-(defun org-reading-list-ia--show-candidates (rows current-year origin truncated)
+(defun org-reading-list-ia--quit-to-return ()
+  "Quit the candidate window, returning to its launch buffer when known.
+With no recorded return buffer this is plain `quit-window' (back to the
+reading list)."
+  (interactive)
+  (let ((rb org-reading-list-ia--return-buffer))
+    (quit-window)
+    (when (buffer-live-p rb)
+      (pop-to-buffer rb))))
+
+
+(defun org-reading-list-ia--show-candidates (rows current-year origin truncated
+                                                  &optional return-buffer)
   "Display ROWS in a candidate buffer launched from ORIGIN.
-CURRENT-YEAR marks the listed edition; TRUNCATED notes a capped search."
+CURRENT-YEAR marks the listed edition; TRUNCATED notes a capped search.
+RETURN-BUFFER, when non-nil, is switched to on `q' instead of the
+default (back to the reading list)."
   (let ((buf (get-buffer-create "*IA editions*")))
     (with-current-buffer buf
       (org-reading-list-ia-candidates-mode)
       (setq org-reading-list-ia--rows rows
             org-reading-list-ia--origin origin
+            org-reading-list-ia--return-buffer return-buffer
             tabulated-list-entries
             (let ((i 0))
               (mapcar (lambda (r)
@@ -426,11 +445,13 @@ CURRENT-YEAR marks the listed edition; TRUNCATED notes a capped search."
       (when truncated
         (message "Results truncated at %d candidates"
                  org-reading-list-ia-max-candidates))
-      (local-set-key (kbd "RET") #'org-reading-list-ia--pick))
+      (local-set-key (kbd "RET") #'org-reading-list-ia--pick)
+      (local-set-key (kbd "q") #'org-reading-list-ia--quit-to-return))
     (pop-to-buffer buf)))
 
-(defun org-reading-list-ia--find-at-point ()
-  "Find and offer scanned editions for the reading-list entry at point."
+(defun org-reading-list-ia--find-at-point (&optional return-buffer)
+  "Find and offer scanned editions for the reading-list entry at point.
+RETURN-BUFFER, when non-nil, is where the candidate buffer's `q' returns."
   (let* ((author (org-entry-get nil "AUTHOR"))
          (title (org-entry-get nil "TITLE"))
          (current (org-reading-list-ia--year-int (org-entry-get nil "DATE")))
@@ -442,7 +463,7 @@ CURRENT-YEAR marks the listed edition; TRUNCATED notes a capped search."
       (if (null rows)
           (message "No scanned editions found on the Internet Archive")
         (org-reading-list-ia--show-candidates
-         rows current origin (plist-get res :truncated))))))
+         rows current origin (plist-get res :truncated) return-buffer)))))
 
 (defun org-reading-list-ia--probe-open (author title)
   "Probe IA for an openly-readable scan matching AUTHOR and TITLE.
@@ -516,13 +537,14 @@ plist (:rows ROWS :checked M :have-copy K :superseded J :errors KEYS)."
 (defun org-reading-list-ia--report-drill ()
   "Jump to the entry on the current report line and offer its editions."
   (interactive)
-  (let* ((id (tabulated-list-get-id))
+  (let* ((report-buf (current-buffer))
+         (id (tabulated-list-get-id))
          (row (when id (nth (string-to-number id) org-reading-list-ia--rows)))
          (origin (and row (plist-get row :origin))))
     (when origin
       (pop-to-buffer (marker-buffer origin))
       (goto-char origin)
-      (org-reading-list-ia--find-at-point))))
+      (org-reading-list-ia--find-at-point report-buf))))
 
 (define-derived-mode org-reading-list-ia-report-mode tabulated-list-mode
   "IA-Report"

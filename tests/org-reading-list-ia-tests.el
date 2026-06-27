@@ -562,6 +562,25 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
         (should added)
         (should-not attached)))))
 
+(ert-deftest org-reading-list-ia-test-show-candidates-return-buffer ()
+  (cl-letf (((symbol-function 'pop-to-buffer) (lambda (&rest _) nil)))
+    (let ((rb (get-buffer-create "*ret*")))
+      (unwind-protect
+          (progn
+            ;; With a return buffer: stored, and q runs --quit-to-return.
+            (org-reading-list-ia--show-candidates nil nil nil nil rb)
+            (with-current-buffer "*IA editions*"
+              (should (eq org-reading-list-ia--return-buffer rb))
+              (should (eq (local-key-binding (kbd "q"))
+                          'org-reading-list-ia--quit-to-return)))
+            ;; Without one (point mode): stored nil.
+            (org-reading-list-ia--show-candidates nil nil nil nil)
+            (with-current-buffer "*IA editions*"
+              (should (null org-reading-list-ia--return-buffer))))
+        (when (get-buffer "*IA editions*") (kill-buffer "*IA editions*"))
+        (kill-buffer rb)))))
+
+
 
 
 (provide 'org-reading-list-ia-tests)
