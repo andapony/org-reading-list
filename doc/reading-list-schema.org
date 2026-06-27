@@ -34,8 +34,9 @@ property names and conventions; see [[*Migration from the v1 schema][Migration]]
 - Status lives in the TODO keyword, not a property or tag. =C-c C-t=
   cycles it; agenda views like =org-todo-list= then work for free.
 - =C-c C-x C-c= on the =Books= heading gives the spreadsheet view.
-- New entries are prepended under =Books= (newest first by =:ADDED:=);
-  re-sort on demand with =C-c ^= on the parent heading (by property).
+- New entries are appended as the last child of =Books= (before any
+  trailing file local-variables block); re-sort on demand with =C-c ^=
+  on the parent heading (by property).
 
 * Entry anatomy
 
@@ -92,7 +93,8 @@ treating them as the book's actual identifiers.)
 | DDC        | no  | Dewey classification (keep prime marks)  | =979.4/61=                       |
 | HOLDINGS   | no  | =";"=-separated codes, optional parenthetical note | =OWN (hardcover); SFPL; MILIB= |
 | CALLNO     | no  | local shelf number(s): =CODE number=, =";"=-separated | =MILIB 979.461 L88; SFPL 979.461 L88= |
-| LOCALFILE  | no  | Org file link to a local copy (PDF etc.) | =[[file:~/org/reading-list-pdfs/marryat1962.pdf]]= |
+| LOCALFILE     | no  | Org file link to a local copy (PDF etc.) | =[[file:~/org/reading-list-pdfs/marryat1962.pdf]]= |
+| SUPERSEDED_BY | no  | Org cite-link to the preferred edition   | =[[#marryat1855]]=               |
 | ADDED      | yes | inactive Org timestamp                   | =[2026-06-10 Wed]=               |
 | FOUND      | no  | URL, Org link, or free text provenance   | =https://…= or =rec. from C. Karr= |
 | URL        | no  | canonical link for the work itself       | publisher or Open Library page   |
@@ -132,6 +134,12 @@ Notes on the subtle ones:
 - *COVERS* — retained from v1 for the SF history collection (period
   treated vs. publication date, for dual-axis sorting). Optional and
   has no BibTeX/MARC equivalent.
+- *SUPERSEDED_BY* — set by =M-x org-reading-list-supersede= (dispatch:
+  Record → "Supersede heading"). Marks this heading as superseded by a
+  preferred edition: the old heading and its cite key stay, so existing
+  =[[#key]]= references keep resolving, but it redirects to the preferred
+  edition and drops out of the IA "scans to grab" worklist. One-directional
+  (only the superseded heading carries the link).
 
 * Tags (subjects) and status
 
