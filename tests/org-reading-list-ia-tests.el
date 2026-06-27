@@ -580,6 +580,42 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
         (when (get-buffer "*IA editions*") (kill-buffer "*IA editions*"))
         (kill-buffer rb)))))
 
+(ert-deftest org-reading-list-ia-test-report-rows-progress ()
+  (let ((made 0) (updates 0) (done 0))
+    (cl-letf (((symbol-function 'make-progress-reporter)
+               (lambda (&rest _) (setq made (1+ made)) 'rep))
+              ((symbol-function 'progress-reporter-update)
+               (lambda (&rest _) (setq updates (1+ updates))))
+              ((symbol-function 'progress-reporter-done)
+               (lambda (&rest _) (setq done (1+ done))))
+              ((symbol-function 'org-reading-list-ia--probe-open)
+               (lambda (&rest _) nil)))
+      (org-reading-list-ia--report-rows
+       (list '(:author "A, B" :title "T1" :citekey "k1")
+             '(:author "C, D" :title "T2" :citekey "k2"))))
+    (should (= made 1))
+    (should (>= updates 2))
+    (should (= done 1))))
+
+(ert-deftest org-reading-list-ia-test-find-at-point-progress-message ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD T\n:PROPERTIES:\n:CUSTOM_ID: t1\n"
+            ":AUTHOR: A, B\n:TITLE: T\n:END:\n")
+    (goto-char (point-min))
+    (re-search-forward "TOREAD T")
+    (let (msgs)
+      (cl-letf (((symbol-function 'org-reading-list-ia--editions)
+                 (lambda (&rest _) (list :rows nil)))
+                ((symbol-function 'message)
+                 (lambda (fmt &rest a) (push (apply #'format fmt a) msgs))))
+        (org-reading-list-ia--find-at-point))
+      (should (seq-find
+               (lambda (m) (string-match-p "Searching the Internet Archive" m))
+               msgs)))))
+
+
+
 
 
 

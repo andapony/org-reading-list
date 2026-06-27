@@ -458,6 +458,7 @@ RETURN-BUFFER, when non-nil, is where the candidate buffer's `q' returns."
          (origin (save-excursion (org-back-to-heading t) (point-marker))))
     (unless (and author title)
       (user-error "Entry needs :AUTHOR: and :TITLE: to search IA"))
+    (message "Searching the Internet Archive...")
     (let* ((res (org-reading-list-ia--editions author title))
            (rows (plist-get res :rows)))
       (if (null rows)
@@ -508,10 +509,16 @@ An entry whose :localfile is non-empty already has a local copy
 been redirected to a preferred edition (counted into :superseded);
 neither is probed.  Each remaining entry (with an :author and :title) is
 probed via `org-reading-list-ia--probe-open'; one that yields an open
-hit becomes a row (the entry plist with :earliest added).  Return a
-plist (:rows ROWS :checked M :have-copy K :superseded J :errors KEYS)."
-  (let ((rows nil) (errors nil) (checked 0) (have-copy 0) (superseded 0))
+hit becomes a row (the entry plist with :earliest added).  Progress is
+reported while probing.  Return a plist (:rows ROWS :checked M
+:have-copy K :superseded J :errors KEYS)."
+  (let ((rows nil) (errors nil) (checked 0) (have-copy 0) (superseded 0)
+        (reporter (make-progress-reporter "Probing the Internet Archive..."
+                                          0 (length entries)))
+        (i 0))
     (dolist (e entries)
+      (setq i (1+ i))
+      (funcall (symbol-function 'progress-reporter-update) reporter i)
       (let ((author (plist-get e :author))
             (title (plist-get e :title))
             (localfile (plist-get e :localfile))
@@ -528,6 +535,7 @@ plist (:rows ROWS :checked M :have-copy K :superseded J :errors KEYS)."
                 (when hit
                   (push (append e (list :earliest hit)) rows)))
             (error (push (plist-get e :citekey) errors)))))))
+    (progress-reporter-done reporter)
     (list :rows (nreverse rows)
           :checked checked
           :have-copy have-copy
