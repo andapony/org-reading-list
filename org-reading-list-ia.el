@@ -284,10 +284,12 @@ added to the original.  Return the new entry's buffer position."
                         (match-string 1 entry))))
       ;; Back-link first (does not shift ORIGPOS), then file the new entry.
       (org-reading-list-ia--add-backlink origpos newkey)
-      (save-restriction
-        (widen)
-        (org-reading-list--insert-under-headline
-         entry org-reading-list-headline)))))
+      (prog1
+          (save-restriction
+            (widen)
+            (org-reading-list--insert-under-headline
+             entry org-reading-list-headline))
+        (message "Added edition %s" newkey)))))
 
 (defun org-reading-list-ia--format-row (row current-year)
   "Return a tabulated-list cell vector for edition ROW.
@@ -367,8 +369,6 @@ report.  Return non-nil when changes were applied, nil otherwise."
         (message "Attached scan to %s" key)
         t))))
 
-
-
 (defun org-reading-list-ia--act-on (row)
   "Act on candidate ROW for the entry at point.
 When ROW is the entry's current edition (its year matches :DATE:),
@@ -395,8 +395,7 @@ Otherwise add ROW as a new edition, on confirmation."
       (with-current-buffer (marker-buffer origin)
         (save-excursion
           (goto-char origin)
-          (org-reading-list-ia--act-on row)))
-      (message "Added edition %s" (plist-get row :identifier)))))
+          (org-reading-list-ia--act-on row))))))
 
 (define-derived-mode org-reading-list-ia-candidates-mode tabulated-list-mode
   "IA-Editions"

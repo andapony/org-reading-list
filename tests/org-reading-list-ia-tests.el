@@ -198,10 +198,15 @@
             "Original note.\n")
     (let ((org-reading-list-headline "Books")
           (cand '(:identifier "annals1855" :year "1855" :publisher "Appleton"
-                  :imagecount 560 :olid "OL1M")))
+			      :imagecount 560 :olid "OL1M"))
+          (msg nil))
       (goto-char (point-min))
       (re-search-forward "TOREAD The Annals")
-      (org-reading-list-ia--add-edition cand)
+      (cl-letf (((symbol-function 'message)
+                 (lambda (fmt &rest args) (setq msg (apply #'format fmt args)))))
+        (org-reading-list-ia--add-edition cand))
+      ;; Message reports the new cite key, not the IA identifier.
+      (should (equal msg "Added edition soule1855"))
       (let ((text (buffer-string)))
         ;; New entry filed with edition fields.
         (should (string-match-p ":IA: annals1855" text))
@@ -556,9 +561,6 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
         (org-reading-list-ia--act-on '(:year-int 1850 :identifier "b"))
         (should added)
         (should-not attached)))))
-
-
-
 
 
 
