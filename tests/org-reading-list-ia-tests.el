@@ -425,6 +425,19 @@ calls `tabulated-list-get-id' to map the cursor position to a row plist."
         (should (null (plist-get res :rows)))
         (should (= (plist-get res :checked) 1))))))
 
+(ert-deftest org-reading-list-ia-test-scan-headings-superseded ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n"
+            "** A\n:PROPERTIES:\n:CUSTOM_ID: a1\n:TITLE: A\n:AUTHOR: X, Y\n"
+            ":DATE: 1900\n:SUPERSEDED_BY: [[#b1]]\n:END:\n"
+            "** B\n:PROPERTIES:\n:CUSTOM_ID: b1\n:TITLE: B\n:AUTHOR: P, Q\n"
+            ":DATE: 1910\n:END:\n")
+    (let ((es (org-reading-list-ia--scan-headings)))
+      (should (equal (plist-get (nth 0 es) :superseded) "[[#b1]]"))
+      (should (null (plist-get (nth 1 es) :superseded))))))
+
+
 
 (provide 'org-reading-list-ia-tests)
 ;;; org-reading-list-ia-tests.el ends here
