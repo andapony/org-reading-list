@@ -1891,6 +1891,20 @@ BODY may reference `file', the temp file's path."
             (should (string-match-p "Imported 0, skipped 2" msg))))
       (delete-file dest-f) (delete-file src-f))))
 
+(ert-deftest org-reading-list-test-goto-reveal ()
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Books\n** TOREAD A\n:PROPERTIES:\n:CUSTOM_ID: a1\n:END:\nbody A\n")
+    (org-overview)                                  ; fold everything
+    (goto-char (point-min))
+    (re-search-forward "TOREAD A")
+    (let ((pos (line-beginning-position)))
+      (goto-char (point-min))                       ; move away
+      (org-reading-list--goto-reveal pos)
+      (should (= (point) pos))
+      (should-not (org-invisible-p (point))))))
+
+
 
 
 

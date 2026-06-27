@@ -1030,13 +1030,13 @@ SRC-NAME is the source's display name.  DEST is the destination buffer."
         (progn
           (pop-to-buffer dest)
           (widen)
-          (goto-char (plist-get (cdr dup) :pos))
+          (org-reading-list--goto-reveal (plist-get (cdr dup) :pos))
           (message "Already in list: %s" (plist-get (cdr dup) :heading)))
       (let* ((subtree (org-reading-list--entry-subtree))
              (pos (org-reading-list--import-entry subtree src-name dest)))
         (pop-to-buffer dest)
         (widen)
-        (goto-char pos)
+        (org-reading-list--goto-reveal pos)
         (message "Imported into reading list")))))
 
 (defun org-reading-list--subtree-as-toplevel (subtree)
@@ -1675,6 +1675,12 @@ position of the inserted entry."
         (insert (org-reading-list--demote (string-trim-right entry) level) "\n")
         pos))))
 
+(defun org-reading-list--goto-reveal (pos)
+  "Move point to POS and reveal its entry, even when the buffer is folded."
+  (goto-char pos)
+  (org-reveal))
+
+
 ;;;###autoload
 (defun org-reading-list-goto-headline ()
   "Move point to `org-reading-list-headline', creating it if absent.
@@ -1717,7 +1723,7 @@ instead of inserting."
                      org-reading-list-headline))))))
     (pop-to-buffer buf)
     (widen)
-    (goto-char (or pos (plist-get (cdr dup) :pos)))
+    (org-reading-list--goto-reveal (or pos (plist-get (cdr dup) :pos)))
     (unless pos
       (message "Already in list: %s" (plist-get (cdr dup) :heading)))))
 
@@ -1920,7 +1926,7 @@ Signal a `user-error' when no such entry exists."
   (widen)
   (let ((pos (org-find-property "CUSTOM_ID" citekey)))
     (if pos
-        (progn (goto-char pos) (org-reveal))
+        (org-reading-list--goto-reveal pos)
       (user-error "No reading-list entry with citekey %s" citekey))))
 
 (defun org-reading-list-link-export (citekey desc &optional _backend _info)
